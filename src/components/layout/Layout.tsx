@@ -105,7 +105,7 @@ export function Layout() {
           }}
           className="text-4xl md:text-5xl font-black text-transparent bg-clip-text tracking-tighter italic pr-2"
         >
-          prople
+          PROPLE
         </motion.h1>
       </div>
     );

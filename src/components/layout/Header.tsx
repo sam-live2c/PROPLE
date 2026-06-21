@@ -43,7 +43,7 @@ export function Header({ isVisible = true }: { isVisible?: boolean }) {
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-1.5 text-buildops-text hover:text-white transition-colors">
             <Hexagon className="h-5 w-5 text-buildops-blue" />
-            <span className="font-bold tracking-tight text-xl font-mono">prople</span>
+            <span className="font-bold tracking-tight text-xl font-mono">PROPLE</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
