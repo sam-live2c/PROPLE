@@ -11,6 +11,8 @@ import { sessionCache } from "@/src/lib/sessionCache";
 import { DetailSkeleton } from "@/src/components/SkeletonLoader";
 import { CodeEditor } from "@/src/components/CodeEditor";
 import { cn, formatCount, formatPostTime } from "@/src/lib/utils";
+import { useConfirmNavigation } from "@/src/hooks/useConfirmNavigation";
+import { ConfirmNavigationDialog } from "@/src/components/ConfirmNavigationDialog";
 
 import { generateSearchData } from "@/src/lib/search";
 
@@ -149,6 +151,9 @@ export function ProblemDetail() {
   const [editCategory, setEditCategory] = useState("none");
 
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const isDirty = isEditing && (editTitle.trim() !== (post?.title || "").trim() || editBody.trim() !== (post?.body || "").trim());
+  const blocker = useConfirmNavigation(isDirty && !isSavingEdit);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasLiked, setHasLiked] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
@@ -1125,6 +1130,24 @@ export function ProblemDetail() {
       }
   }
 
+  let editedTimeStr = "";
+  if (post && post.isEdited) {
+      let editDateObj: Date | null = null;
+      if (post.updatedAt) {
+          if (typeof post.updatedAt === 'string') {
+              editDateObj = new Date(post.updatedAt);
+          } else if (post.updatedAt.toDate) {
+              editDateObj = post.updatedAt.toDate();
+          } else if (post.updatedAt instanceof Date) {
+              editDateObj = post.updatedAt;
+          }
+      }
+      if (!editDateObj) {
+          editDateObj = new Date();
+      }
+      editedTimeStr = format(editDateObj, "MMM d, yyyy h:mm a");
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-8 pb-16 lg:pb-0 relative">
       {/* Main Content */}
@@ -1248,37 +1271,6 @@ export function ProblemDetail() {
                   className="w-full bg-buildops-card border border-buildops-border rounded-lg px-4 py-2 text-xl font-bold text-buildops-text focus:outline-none focus:border-buildops-blue"
                   placeholder="Post Title"
                 />
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="relative">
-                     <select
-                       value={editStatus}
-                       onChange={(e) => setEditStatus(e.target.value)}
-                       className="w-full bg-buildops-card border border-buildops-border rounded-lg pl-3 pr-10 py-2.5 text-sm font-sans text-buildops-text focus:outline-none focus:border-buildops-blue appearance-none cursor-pointer"
-                     >
-                        <option value="none">Status: None</option>
-                        <option value="open">Status: Open</option>
-                     </select>
-                     <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-buildops-text-secondary pointer-events-none" />
-                   </div>
-                   <div className="relative">
-                     <select
-                       value={editCategory}
-                       onChange={(e) => setEditCategory(e.target.value)}
-                       className="w-full bg-buildops-card border border-buildops-border rounded-lg pl-3 pr-10 py-2.5 text-sm font-sans text-buildops-text focus:outline-none focus:border-buildops-blue appearance-none cursor-pointer"
-                     >
-                        <option value="none">Category: None</option>
-                        <option value="software">Software</option>
-                        <option value="hardware">Hardware</option>
-                        <option value="ai">AI</option>
-                        <option value="iot">IoT</option>
-                        <option value="cybersecurity">Cybersecurity</option>
-                        <option value="high-tech">High-Tech</option>
-                        <option value="it">IT</option>
-                     </select>
-                     <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-buildops-text-secondary pointer-events-none" />
-                   </div>
-                 </div>
-                 
              </div>
           ) : (
             <>
@@ -1318,9 +1310,8 @@ export function ProblemDetail() {
                <CodeEditor 
                   value={editBody}
                   onChange={setEditBody}
-                  draftKey={`edit_post_draft_${id}`}
                   placeholder="Post Body"
-                  height="150px"
+                  height="165px"
                />
                <div className="flex gap-2">
                   <button 
@@ -1368,7 +1359,7 @@ export function ProblemDetail() {
           
           {!isEditing && (
              <div className="text-sm text-buildops-text-secondary mt-2 mb-4" title={dateStr}>
-                {timeAgo === dateStr ? dateStr : `${timeAgo}`} {post.isEdited && <span className="ml-1 text-buildops-text-secondary">(edited)</span>}
+                {timeAgo === dateStr ? dateStr : `${timeAgo}`} {post.isEdited && <span className="ml-1 text-buildops-text-secondary">{editedTimeStr ? `(edited ${editedTimeStr})` : '(edited)'}</span>}
              </div>
           )}
 
@@ -1879,7 +1870,27 @@ export function ProblemDetail() {
                                     </div>
                                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                       <Link to={`/profile/${comment.authorId}`} className="text-xs text-buildops-text-secondary hover:underline truncate max-w-[100px]">@{author?.handle || 'user'}</Link>
-                                      {comment.isEdited && <span className="text-xs text-buildops-text-secondary ml-1">(edited)</span>}
+                                      {comment.isEdited && (
+                                        <span className="text-xs text-buildops-text-secondary ml-1">
+                                          {(() => {
+                                            let editDateObj: Date | null = null;
+                                            if (comment.updatedAt) {
+                                                if (typeof comment.updatedAt === 'string') {
+                                                    editDateObj = new Date(comment.updatedAt);
+                                                } else if (comment.updatedAt.toDate) {
+                                                    editDateObj = comment.updatedAt.toDate();
+                                                } else if (comment.updatedAt instanceof Date) {
+                                                    editDateObj = comment.updatedAt;
+                                                }
+                                            }
+                                            if (!editDateObj) {
+                                                editDateObj = new Date();
+                                            }
+                                            const commentEditedStr = format(editDateObj, "MMM d, yyyy h:mm a");
+                                            return `(edited ${commentEditedStr})`;
+                                          })()}
+                                        </span>
+                                      )}
                                       {depth > 0 && parentAuthor && parentComment && (
                                          <span className="text-xs text-buildops-text-secondary flex items-center ml-1">
                                             <span className="mx-1">•</span>
@@ -2314,6 +2325,24 @@ export function ProblemDetail() {
           </div>
         </div>
       )}
+      <ConfirmNavigationDialog
+        isOpen={blocker.state === 'blocked'}
+        title="Discard changes?"
+        description="You have unsaved edits."
+        primaryActionText="Save Changes"
+        secondaryActionText="Discard"
+        onPrimaryAction={async () => {
+           await handleSaveEdit();
+           blocker.proceed?.();
+        }}
+        onSecondaryAction={() => {
+           setEditTitle(post?.title || "");
+           setEditBody(post?.body || "");
+           setIsEditing(false);
+           blocker.proceed?.();
+        }}
+        onDismiss={() => blocker.reset?.()}
+      />
     </div>
   );
 }

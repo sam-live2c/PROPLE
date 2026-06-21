@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ThumbsUp, Play, MessageSquare, BarChart2, Share, CheckCircle2, MoreVertical, AlertTriangle, Info, Edit2, Trash2, Bookmark, User, Upload, RotateCcw, Github, Globe } from "lucide-react";
 import { toast } from 'sonner';
 import { cn, formatCount, formatPostTime } from "@/src/lib/utils";
@@ -42,6 +42,15 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
   const [isSaving, setIsSaving] = useState(false);
 
   const [isLiking, setIsLiking] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.ceil(textareaRef.current.scrollHeight * 1.1)}px`;
+    }
+  }, [isEditing, editBody]);
 
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -112,7 +121,7 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
            isEdited: true,
            updatedAt: serverTimestamp()
          });
-      setPost({ ...post, title: editTitle.trim(), body: editBody.trim(), isEdited: true });
+      setPost({ ...post, title: editTitle.trim(), body: editBody.trim(), isEdited: true, updatedAt: new Date() });
       setIsEditing(false);
     } catch (err) {
       console.error(err);
@@ -317,6 +326,24 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
           timeAgo = formatPostTime(dateObj);
           dateStr = format(dateObj, "MMM d, yyyy");
       }
+  }
+
+  let editedTimeStr = "";
+  if (post.isEdited) {
+      let editDateObj: Date | null = null;
+      if (post.updatedAt) {
+          if (typeof post.updatedAt === 'string') {
+              editDateObj = new Date(post.updatedAt);
+          } else if (post.updatedAt.toDate) {
+              editDateObj = post.updatedAt.toDate();
+          } else if (post.updatedAt instanceof Date) {
+              editDateObj = post.updatedAt;
+          }
+      }
+      if (!editDateObj) {
+          editDateObj = new Date();
+      }
+      editedTimeStr = format(editDateObj, "MMM d, yyyy h:mm a");
   }
 
   return (
@@ -568,13 +595,14 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
                   placeholder="Post title"
                />
                <textarea
+                  ref={textareaRef}
                   value={editBody}
                   onChange={(e) => {
                     setEditBody(e.target.value);
                     e.target.style.height = "auto";
-                    e.target.style.height = e.target.scrollHeight + "px";
+                    e.target.style.height = `${Math.ceil(e.target.scrollHeight * 1.1)}px`;
                   }}
-                  className="w-full bg-buildops-bg border border-buildops-border rounded-lg px-3 py-2 text-sm text-buildops-text focus:outline-none focus:border-buildops-blue resize-none min-h-[80px]"
+                  className="w-full bg-buildops-bg border border-buildops-border rounded-lg px-3 py-2 text-sm text-buildops-text focus:outline-none focus:border-buildops-blue resize-none min-h-[88px]"
                   placeholder="Post details"
                />
                <div className="flex justify-end gap-2">
@@ -656,7 +684,7 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
             </span>
           )}
           <span className="text-buildops-text-secondary text-[12px] sm:ml-auto w-full sm:w-auto mt-1 sm:mt-0" title={dateStr}>
-            {timeAgo === dateStr ? dateStr : `${timeAgo}`} {post.isEdited && <span className="ml-1 text-buildops-text-secondary">(edited)</span>}
+            {timeAgo === dateStr ? dateStr : `${timeAgo}`} {post.isEdited && <span className="ml-1 text-buildops-text-secondary">{editedTimeStr ? `(edited ${editedTimeStr})` : '(edited)'}</span>}
           </span>
         </div>
 

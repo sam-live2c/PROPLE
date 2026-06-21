@@ -17,7 +17,7 @@ export function CodeEditor({ value, onChange, placeholder, height = "150px", dra
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      textareaRef.current.style.height = `${Math.ceil(textareaRef.current.scrollHeight * 1.1)}px`;
     }
   }, [value]);
 

@@ -386,6 +386,17 @@ export function Search() {
   const [trendsLoaded, setTrendsLoaded] = useState(false);
   const [longPressedSearchId, setLongPressedSearchId] = useState<string | null>(null);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (longPressedSearchId) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [longPressedSearchId]);
   
   const handleSearchPressStart = (searchId: string) => {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -970,7 +981,7 @@ export function Search() {
                         key={search.id}
                         className="relative"
                       >
-                         {longPressedSearchId === search.id && (
+                         {false && (
                              <div className="absolute top-0 left-0 w-full h-full bg-buildops-bg/40 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-lg">
                                 <div className="bg-buildops-card border border-buildops-border p-2 rounded-lg shadow-lg flex flex-col items-center gap-2 max-w-[200px]">
                                     <p className="text-sm text-buildops-text font-medium text-center">Delete this search?</p>
@@ -1290,6 +1301,63 @@ export function Search() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Centered rigid search deletion dialog */}
+      {longPressedSearchId && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 animate-in fade-in duration-100"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLongPressedSearchId(null);
+          }}
+        >
+          <div className="bg-[#0c0d12] border border-buildops-border rounded w-full max-w-[290px] p-4 relative animate-in zoom-in-[0.98] duration-100 font-sans shadow-lg text-left">
+            <div className="flex justify-between items-start mb-3 gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-buildops-text leading-tight">Delete this search?</h3>
+                <p className="text-xs text-buildops-text-secondary mt-1 leading-normal">
+                  {(() => {
+                    const searchObj = recentSearches.find(s => s.id === longPressedSearchId);
+                    return searchObj ? `This will delete "${searchObj.query}" from your history.` : "This will remove this query from your search history.";
+                  })()}
+                </p>
+              </div>
+              <button 
+                onClick={() => setLongPressedSearchId(null)} 
+                className="p-1 -mr-1 -mt-1 text-buildops-text-secondary/60 hover:text-buildops-text rounded hover:bg-buildops-card transition-colors shrink-0 bg-transparent border-0 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setLongPressedSearchId(null)}
+                className="px-3 py-1.5 border border-buildops-border hover:bg-buildops-card text-buildops-text-secondary hover:text-buildops-text font-medium rounded text-xs transition-colors cursor-pointer bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { 
+                  const searchId = longPressedSearchId;
+                  const searchObj = recentSearches.find(s => s.id === searchId);
+                  setLongPressedSearchId(null); 
+                  setRecentSearches(prev => {
+                    const updated = prev.filter(s => s.id !== searchId);
+                    localStorage.setItem('recentSearches', JSON.stringify(updated));
+                    return updated;
+                  });
+                  if (user && searchId && searchObj && searchId !== searchObj.query) {
+                    deleteDoc(doc(db, "searchHistory", searchId)).catch(console.error);
+                  }
+                }} 
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-semibold rounded text-xs transition-colors shadow-sm cursor-pointer border-0"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
