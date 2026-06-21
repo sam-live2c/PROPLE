@@ -100,12 +100,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Authentication popup closed by user.");
       } else if (error.code === 'auth/unauthorized-domain') {
         console.error("Firebase auth domain not authorized", error);
-        toast.error("Unauthorized Domain: Please add this app's current domain to 'Authorized domains' in your Firebase console settings.");
+        toast.error("Unable to complete login. Please open this app in a new tab.");
       } else if (error.code === 'auth/popup-blocked') {
-        toast.error("Popup blocked! Direct popup sign-in is blocked in standard iframes. Please open this app in a new tab.");
+        toast.error("Login popup blocked. Please open this app in a new tab.");
       } else {
         console.error("Error signing in with Google", error);
-        toast.error("Sign in issue encountered. Running this application inside a new tab resolves iframe-related login delays.");
+        toast.error("Unable to complete login. Please try again.");
       }
     }
   };
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.success("Successfully logged in as Guest!");
     } catch (error) {
       console.error("Error signing in anonymously", error);
-      toast.error("Failed to sign in as Guest. Please check your Firebase settings.");
+      toast.error("Unable to complete guest login. Please try again.");
     }
   };
 

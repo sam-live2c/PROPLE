@@ -272,6 +272,14 @@ export function Search() {
       setHistoryLoaded(true);
       return;
     }
+
+    const cacheKey = `search_history_${user.uid}`;
+    if (sessionCache.has(cacheKey)) {
+      setRecentSearches(sessionCache.get(cacheKey, []));
+      setHistoryLoaded(true);
+      return;
+    }
+
     const fetchHistory = async () => {
       try {
         let cloudHistory: { id: string, query: string, createdAt: number }[] = [];
@@ -308,8 +316,11 @@ export function Search() {
             try {
               localStorage.setItem('recentSearches', JSON.stringify(finalHistory));
             } catch (e) {}
+            sessionCache.set(cacheKey, finalHistory);
             return finalHistory;
           });
+        } else {
+          sessionCache.set(cacheKey, recentSearches);
         }
       } catch (err) {
         console.error("Failed to fetch search history", err);
@@ -335,6 +346,9 @@ export function Search() {
          try {
            localStorage.setItem('recentSearches', JSON.stringify(updated));
          } catch (e) {}
+         if (user) {
+           sessionCache.set(`search_history_${user.uid}`, updated);
+         }
          return updated;
       });
       
