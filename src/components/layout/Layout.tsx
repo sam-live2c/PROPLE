@@ -103,9 +103,9 @@ export function Layout() {
             backgroundImage: "linear-gradient(90deg, #080A0F 0%, #080A0F 35%, #3B82F6 45%, #22C55E 55%, #080A0F 65%, #080A0F 100%)",
             backgroundSize: "400% 100%",
           }}
-          className="text-4xl md:text-5xl font-black text-transparent bg-clip-text tracking-tighter italic pr-2 uppercase"
+          className="text-4xl md:text-5xl font-black text-transparent bg-clip-text tracking-tighter italic pr-2"
         >
-          PROPLE
+          prople
         </motion.h1>
       </div>
     );

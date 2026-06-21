@@ -1,5 +1,5 @@
 import { Bell, Heart, MessageSquare, Award, Zap, User, X, Trash2, FileText, ArrowLeft, AtSign, Tag, Share2, Bookmark, UserPlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
@@ -79,7 +79,7 @@ export function Notifications() {
   }, [user]);
 
   const [longPressedId, setLongPressedId] = useState<string | null>(null);
-  let pressTimer: any;
+  const pressTimerRef = useRef<any>(null);
 
   const getTriggerIcon = (type: string) => {
      switch (type) {
@@ -153,18 +153,33 @@ export function Notifications() {
          e.stopPropagation();
       }
       try {
+         // Optimistically hide from local state instantly
+         setNotifications(prev => prev.filter(item => item.id !== n.id));
+         setLongPressedId(null);
+
          const { deleteDoc, doc, setDoc } = await import("firebase/firestore");
          await deleteDoc(doc(db, "notifications", n.id));
-         setLongPressedId(null);
          
-         toast("Notification deleted", {
+         toast("Notification cleared", {
             action: {
                label: "Undo",
                onClick: async () => {
                   try {
+                     // Optimistically restore in state
+                     setNotifications(prev => {
+                        const exists = prev.some(item => item.id === n.id);
+                        if (exists) return prev;
+                        const updated = [...prev, n];
+                        updated.sort((a, b) => {
+                           const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : (a.createdAt?.toMillis() || 0);
+                           const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : (b.createdAt?.toMillis() || 0);
+                           return timeB - timeA;
+                        });
+                        return updated;
+                     });
                      await setDoc(doc(db, "notifications", n.id), n);
                   } catch(err) {
-                     console.error(err);
+                     console.error("Failed to restore notification:", err);
                   }
                }
             }
@@ -222,6 +237,7 @@ export function Notifications() {
       return `${short} ago`;
    };
   const hasAnyNotifications = filteredNotifications.length > 0;
+  const hasUnread = filteredNotifications.some(n => !n.read);
 
   return (
     <div id="notifications-page" className="flex flex-col min-h-screen pb-20 md:pb-0 w-full relative">
@@ -234,7 +250,20 @@ export function Notifications() {
           <h1 className="text-[20px] font-bold text-white tracking-tight">Notifications</h1>
           <div className="flex-1" />
           {hasAnyNotifications && (
-            <button id="notif-mark-read" onClick={markAllAsRead} className="text-sm font-semibold text-buildops-blue hover:opacity-80 transition-colors cursor-pointer justify-end pr-1">Mark all as read</button>
+            <motion.button 
+              id="notif-mark-read" 
+              onClick={markAllAsRead} 
+              disabled={!hasUnread}
+              animate={{ 
+                color: hasUnread ? "#3B82F6" : "#71717a" 
+              }}
+              whileHover={hasUnread ? { opacity: 0.8 } : {}}
+              whileTap={hasUnread ? { scale: 0.98 } : {}}
+              transition={{ duration: 0.15 }}
+              className="text-sm font-semibold justify-end pr-1 cursor-pointer bg-transparent border-0 outline-none disabled:cursor-default"
+            >
+              Mark all as read
+            </motion.button>
           )}
         </div>
       </div>
@@ -271,19 +300,51 @@ export function Notifications() {
                             className="relative group overflow-hidden bg-buildops-bg"
                          >
                             <motion.div 
+                               drag="x"
+                               dragConstraints={{ left: 0, right: 0 }}
+                               dragElastic={{ left: 0.8, right: 0.8 }}
+                               onDragStart={() => {
+                                  if (pressTimerRef.current) {
+                                     clearTimeout(pressTimerRef.current);
+                                     pressTimerRef.current = null;
+                                  }
+                               }}
+                               onDragEnd={(event, info) => {
+                                  const swipeThreshold = 100;
+                                  if (info.offset.x > swipeThreshold || info.offset.x < -swipeThreshold) {
+                                     handleDeleteNotification(n);
+                                  }
+                               }}
                               onMouseDown={() => {
-                                 pressTimer = setTimeout(() => {
+                                 if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+                                 pressTimerRef.current = setTimeout(() => {
                                     setLongPressedId(n.id);
-                                  }, 2000);
+                                 }, 1000);
                               }}
-                              onMouseUp={() => clearTimeout(pressTimer)}
-                              onMouseLeave={() => clearTimeout(pressTimer)}
+                              onMouseUp={() => {
+                                 if (pressTimerRef.current) {
+                                    clearTimeout(pressTimerRef.current);
+                                    pressTimerRef.current = null;
+                                 }
+                              }}
+                              onMouseLeave={() => {
+                                 if (pressTimerRef.current) {
+                                    clearTimeout(pressTimerRef.current);
+                                    pressTimerRef.current = null;
+                                 }
+                              }}
                               onTouchStart={() => {
-                                 pressTimer = setTimeout(() => {
+                                 if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+                                 pressTimerRef.current = setTimeout(() => {
                                     setLongPressedId(n.id);
-                                 }, 2000);
+                                 }, 1000);
                               }}
-                              onTouchEnd={() => clearTimeout(pressTimer)}
+                              onTouchEnd={() => {
+                                 if (pressTimerRef.current) {
+                                    clearTimeout(pressTimerRef.current);
+                                    pressTimerRef.current = null;
+                                 }
+                              }}
                               onClick={(e) => {
                                  if (longPressedId) {
                                     e.stopPropagation();
@@ -297,8 +358,8 @@ export function Notifications() {
                                
                                {longPressedId === n.id && (
                                     <div className="absolute inset-0 bg-[#09090b]/95 backdrop-blur-sm z-20 flex items-center justify-end px-4 gap-3 animate-in fade-in">
-                                      <button onClick={(e) => { e.stopPropagation(); setLongPressedId(null); }} className="px-3.5 py-1.5 text-xs font-bold text-buildops-text uppercase tracking-wider font-mono hover:text-buildops-text-secondary transition-colors cursor-pointer">Cancel</button>
-                                      <button onClick={(e) => { setNotifications(prev => prev.filter(t => t.id !== n.id)); handleDeleteNotification(n, e); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold font-mono uppercase tracking-wider rounded transition-colors cursor-pointer">Delete</button>
+                                      <button onClick={(e) => { e.stopPropagation(); setLongPressedId(null); }} className="px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-white transition-colors cursor-pointer bg-transparent border-0 outline-none">Cancel</button>
+                                      <button onClick={(e) => { handleDeleteNotification(n, e); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded transition-colors cursor-pointer border-0 outline-none">Delete</button>
                                     </div>
                                )}
 
@@ -378,10 +439,9 @@ export function Notifications() {
                                <button 
                                   onClick={(e) => {
                                      e.stopPropagation();
-                                     setNotifications(prev => prev.filter(t => t.id !== n.id));
                                      handleDeleteNotification(n, e);
                                   }}
-                                  className="absolute right-15 top-1/2 -translate-y-1/2 z-30 p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 cursor-pointer hidden md:flex items-center justify-center"
+                                  className="absolute right-15 top-1/2 -translate-y-1/2 z-30 p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 cursor-pointer hidden md:flex items-center justify-center bg-transparent border-0 outline-none"
                                   title="Delete notification"
                                >
                                   <Trash2 className="w-4 h-4" />
