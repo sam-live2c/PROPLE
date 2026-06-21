@@ -1,0 +1,268 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "handle": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "verified", "moderator", "admin"] },
+        "trustScore": { "type": "number" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "proofScore": { "type": "number" },
+            "verifiedBuilds": { "type": "number" },
+            "problemsSolved": { "type": "number" },
+            "followersCount": { "type": "number" },
+            "followingCount": { "type": "number" }
+          },
+          "required": ["proofScore", "verifiedBuilds", "problemsSolved"]
+        },
+        "onboardingCompleted": { "type": "boolean" },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "handle", "displayName", "photoURL", "role", "trustScore", "stats", "onboardingCompleted", "interests", "createdAt", "updatedAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "A problem or solution posted by a user.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "authorId": { "type": "string" },
+        "type": { "type": "string", "enum": ["problem", "solution", "build"] },
+        "category": { "type": "string", "enum": ["software", "hardware", "ai", "iot"] },
+        "githubUrl": { "type": "string" },
+        "liveUrl": { "type": "string" },
+        "isVerifiedBuild": { "type": "boolean" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "priceMentioned": { "type": "boolean" },
+        "bountyAmount": { "type": "number", "description": "Bounty amount if priceMentioned is true" },
+        "validationPeriodDays": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "solved", "expired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "likesCount": { "type": "number" },
+            "dislikesCount": { "type": "number" },
+            "commentsCount": { "type": "number" },
+            "viewsCount": { "type": "number" },
+            "sharesCount": { "type": "number" },
+            "savesCount": { "type": "number" }
+          },
+          "required": ["likesCount", "dislikesCount", "commentsCount", "viewsCount", "sharesCount", "savesCount"]
+        },
+        "ranking": {
+          "type": "object",
+          "properties": {
+            "feedScore": { "type": "number" }
+          },
+          "required": ["feedScore"]
+        }
+      },
+      "required": ["title", "body", "authorId", "type", "category", "tags", "priceMentioned", "bountyAmount", "validationPeriodDays", "status", "createdAt", "updatedAt", "stats", "ranking"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Like record on a post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "createdAt"]
+    },
+    "Dislike": {
+      "title": "Dislike",
+      "description": "Dislike record on a post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "createdAt"]
+    },
+    "Comment": {
+        "title": "Comment",
+        "description": "Comment on a post.",
+        "type": "object",
+        "properties": {
+            "postId": { "type": "string" },
+            "authorId": { "type": "string" },
+            "parentId": { "type": "string", "description": "Optional parent comment ID for replies" },
+            "body": { "type": "string" },
+            "score": { "type": "number", "description": "Upvotes - downvotes" },
+            "isAcceptedSolution": { "type": "boolean" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["postId", "authorId", "body", "createdAt"]
+    },
+    "Save": {
+        "title": "Save",
+        "description": "User saved/bookmarked posts.",
+        "type": "object",
+        "properties": {
+            "userId": { "type": "string" },
+            "postId": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["userId", "postId", "createdAt"]
+    },
+    "Vote": {
+        "title": "Vote",
+        "description": "Comment upvote or downvote.",
+        "type": "object",
+        "properties": {
+            "userId": { "type": "string" },
+            "commentId": { "type": "string" },
+            "value": { "type": "number", "enum": [1, -1] }
+        },
+        "required": ["userId", "commentId", "value"]
+    },
+    "Notification": {
+        "title": "Notification",
+        "description": "Notification for a user.",
+        "type": "object",
+        "properties": {
+            "userId": { "type": "string" },
+            "type": { "type": "string", "enum": ["like", "comment"] },
+            "fromUserId": { "type": "string" },
+            "postId": { "type": "string" },
+            "read": { "type": "boolean" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["userId", "type", "fromUserId", "postId", "read", "createdAt"]
+    },
+    "View": {
+        "title": "View",
+        "description": "View record on a post.",
+        "type": "object",
+        "properties": {
+            "postId": { "type": "string" },
+            "userId": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["postId", "userId", "createdAt"]
+    },
+    "OtherInteraction": {
+        "title": "OtherInteraction",
+        "description": "Generic structure for shares, boosts, reports.",
+        "type": "object",
+        "properties": {
+            "postId": { "type": "string" },
+            "userId": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["postId", "userId", "createdAt"]
+    },
+    "Report": {
+        "title": "Report",
+        "description": "User submitted reports.",
+        "type": "object",
+        "properties": {
+            "postId": { "type": "string" },
+            "userId": { "type": "string" },
+            "userName": { "type": "string" },
+            "uname": { "type": "string" },
+            "reason": { "type": "string" },
+            "recentActivity": { "type": "object" },
+            "suggestions": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["postId", "userId", "userName", "uname", "reason", "createdAt"]
+    },
+    "Follower": {
+      "title": "Follower",
+      "description": "Follow relationship.",
+      "type": "object",
+      "properties": {
+        "followerId": { "type": "string" },
+        "followingId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["followerId", "followingId", "createdAt"]
+    },
+    "SearchHistory": {
+      "title": "SearchHistory",
+      "description": "Search history item.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "query": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "query", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles. userId strictly matches auth uid."
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Engineering posts."
+    },
+    "/likes/{likeId}": {
+      "schema": { "$ref": "#/entities/Like" },
+      "description": "Likes. likeId should be postId_userId."
+    },
+    "/dislikes/{dislikeId}": {
+      "schema": { "$ref": "#/entities/Dislike" },
+      "description": "Dislikes. dislikeId should be postId_userId."
+    },
+    "/comments/{commentId}": {
+        "schema": { "$ref": "#/entities/Comment" },
+        "description": "Comments."
+    },
+    "/notifications/{notificationId}": {
+        "schema": { "$ref": "#/entities/Notification" },
+        "description": "Notifications."
+    },
+    "/views/{viewId}": {
+        "schema": { "$ref": "#/entities/View" },
+        "description": "Views. viewId should be postId_userId."
+    },
+    "/shares/{shareId}": {
+        "schema": { "$ref": "#/entities/OtherInteraction" },
+        "description": "Shares."
+    },
+    "/boosts/{boostId}": {
+        "schema": { "$ref": "#/entities/OtherInteraction" },
+        "description": "Boosts."
+    },
+    "/reports/{reportId}": {
+        "schema": { "$ref": "#/entities/Report" },
+        "description": "Reports."
+    },
+    "/saves/{saveId}": {
+        "schema": { "$ref": "#/entities/Save" },
+        "description": "Saved posts by user. saveId is postId_userId."
+    },
+    "/votes/{voteId}": {
+        "schema": { "$ref": "#/entities/Vote" },
+        "description": "Comment votes. voteId is commentId_userId."
+    },
+    "/followers/{followId}": {
+        "schema": { "$ref": "#/entities/Follower" },
+        "description": "Follower records. followId should be followerId_followingId."
+    },
+    "/searchHistory/{historyId}": {
+        "schema": { "$ref": "#/entities/SearchHistory" },
+        "description": "User searches."
+    }
+  }
+}

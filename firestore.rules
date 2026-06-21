@@ -1,0 +1,348 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    match /test/connection {
+      allow read, write: if true;
+    }
+    
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    match /admins/{adminId} {
+        allow read: if isSignedIn();
+        allow write: if false; // Only manageable from backend
+    }
+    
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'email', 'handle', 'displayName', 'role', 'trustScore', 'onboardingCompleted', 'interests', 'createdAt', 'updatedAt'])
+        && data.email is string && data.email.size() <= 255
+        && data.handle is string && data.handle.size() <= 60
+        && data.displayName is string
+        && (data.keys().hasAny(['photoURL']) == false || data.photoURL is string || data.photoURL == null)
+        && data.role in ['user', 'verified', 'moderator', 'admin']
+        && data.trustScore is number
+        && data.onboardingCompleted is bool
+        && data.interests is list && data.interests.size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+      }
+      
+      allow read: if true;
+      allow list: if true;
+      
+      allow create: if isSignedIn() 
+        && request.auth.uid == userId
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().role == 'user'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+        
+      allow update: if isSignedIn()
+        && (
+           // Owner can update their own profile fields
+           (request.auth.uid == userId
+           && isValidUser(incoming())
+           && incoming().diff(existing()).affectedKeys().hasAny(['handle', 'displayName', 'photoURL', 'interests', 'onboardingCompleted', 'location', 'gender', 'bio', 'search', 'updatedAt', 'stats'])
+           && incoming().updatedAt == request.time
+           && incoming().uid == existing().uid
+           && incoming().email == existing().email
+           && incoming().role == existing().role
+           && incoming().createdAt == existing().createdAt)
+           ||
+           // Anyone can increment stats
+           (incoming().diff(existing()).affectedKeys().hasOnly(['stats', 'updatedAt'])
+           && incoming().updatedAt == request.time)
+        );
+    }
+    
+    match /posts/{postId} {
+      function isValidPost(data) {
+        return data.keys().hasAll(['title', 'body', 'authorId', 'type', 'createdAt', 'updatedAt', 'stats'])
+        && data.title is string && data.title.size() <= 300 && data.title.size() > 0
+        && data.body is string && data.body.size() <= 20000
+        && data.authorId is string
+        && data.type in ['problem', 'solution', 'build']
+        && (data.keys().hasAny(['category']) == false || data.category in ['software', 'hardware', 'ai', 'iot', 'cybersecurity', 'high-tech', 'it'])
+        && (data.keys().hasAny(['tags']) == false || (data.tags is list && data.tags.size() <= 10))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.stats is map
+        && data.stats.get('likesCount', 0) is number
+        && data.stats.get('dislikesCount', 0) is number
+        && data.stats.get('commentsCount', 0) is number
+        && data.stats.get('viewsCount', 0) is number
+        && data.stats.get('sharesCount', 0) is number
+        && data.stats.get('savesCount', 0) is number;
+      }
+      
+      allow read: if true; // Public read for feed
+      
+      allow create: if isSignedIn()
+        && isValidId(postId)
+        && isValidPost(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (!incoming().keys().hasAny(['status']) || incoming().status in ['open', 'solved', 'expired', 'trashed']);
+
+        
+      allow update: if isSignedIn()
+        && isValidPost(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().type == existing().type
+        && (
+            // Author updating core fields
+            (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['title', 'body', 'category', 'tags', 'updatedAt', 'status', 'search', 'liveUrl', 'isVerifiedBuild']))
+            ||
+            // Any signed in user can increment stats (this allows likes/comments updates)
+            (incoming().diff(existing()).affectedKeys().hasAny(['stats', 'ranking', 'updatedAt', 'search']))
+        );
+
+      allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
+    }
+    
+    match /likes/{likeId} {
+      function isValidLike(data) {
+        return data.keys().hasAll(['postId', 'userId', 'createdAt'])
+        && data.postId is string && data.postId.size() > 0
+        && data.userId is string && data.userId == request.auth.uid
+        && data.createdAt is timestamp;
+      }
+      
+      allow read: if true;
+      allow create: if isSignedIn()
+        && isValidId(likeId)
+        && likeId == incoming().postId + "_" + incoming().userId
+        && isValidLike(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /dislikes/{dislikeId} {
+      function isValidDislike(data) {
+        return data.keys().hasAll(['postId', 'userId', 'createdAt'])
+        && data.postId is string && data.postId.size() > 0
+        && data.userId is string && data.userId == request.auth.uid
+        && data.createdAt is timestamp;
+      }
+      
+      allow read: if true;
+      allow create: if isSignedIn()
+        && isValidId(dislikeId)
+        && dislikeId == incoming().postId + "_" + incoming().userId
+        && isValidDislike(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /comments/{commentId} {
+        function isValidComment(data) {
+            return (data.keys().hasAll(['postId', 'authorId', 'body', 'type', 'search', 'createdAt'])
+            || data.keys().hasAll(['postId', 'authorId', 'body', 'createdAt']))
+            && data.postId is string && data.postId.size() > 0
+            && data.authorId is string && data.authorId == request.auth.uid
+            && data.body is string && data.body.size() > 0 && data.body.size() <= 5000
+            && data.createdAt is timestamp;
+        }
+
+        allow read: if true;
+        allow create: if isSignedIn()
+          && isValidId(commentId)
+          && isValidComment(incoming())
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+        allow update: if isSignedIn() 
+          && (existing().authorId == request.auth.uid || get(/databases/$(database)/documents/posts/$(existing().postId)).data.authorId == request.auth.uid);
+        allow delete: if isSignedIn() 
+          && (existing().authorId == request.auth.uid || get(/databases/$(database)/documents/posts/$(existing().postId)).data.authorId == request.auth.uid);
+    }
+
+    match /notifications/{notificationId} {
+        function isValidNotification(data) {
+            return data.keys().hasAll(['userId', 'type', 'fromUserId', 'read', 'createdAt'])
+            && data.userId is string && data.userId.size() > 0
+            && data.type in ['like', 'comment', 'follow', 'mention', 'reply']
+            && data.fromUserId is string && data.fromUserId.size() > 0
+            && (data.keys().hasAny(['postId']) == false || (data.postId is string && data.postId.size() > 0))
+            && (data.keys().hasAny(['msg']) == false || (data.msg is string))
+            && (data.keys().hasAny(['message']) == false || (data.message is string))
+            && data.read is bool
+            && data.createdAt is timestamp;
+        }
+
+        allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn()
+          && isValidId(notificationId)
+          && isValidNotification(incoming())
+          && incoming().createdAt == request.time
+          && incoming().read == false;
+        allow update: if isSignedIn()
+          && existing().userId == request.auth.uid
+          && isValidNotification(incoming())
+          && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+    }
+
+    match /views/{viewId} {
+        function isValidView(data) {
+            return data.keys().hasAll(['postId', 'userId', 'createdAt'])
+            && data.postId is string && data.postId.size() > 0
+            && data.userId is string && data.userId == request.auth.uid
+            && data.createdAt is timestamp;
+        }
+
+        allow get: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn()
+          && isValidId(viewId)
+          && viewId == incoming().postId + "_" + incoming().userId
+          && isValidView(incoming())
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+    }
+
+    match /followers/{followerDocId} {
+      function isValidFollower(data) {
+        return data.keys().hasAll(['followerId', 'followingId', 'createdAt'])
+        && data.followerId is string && data.followerId == request.auth.uid
+        && data.followingId is string && data.followingId.size() > 0
+        && data.createdAt is timestamp;
+      }
+      
+      allow read: if true;
+      allow create: if isSignedIn()
+        && isValidId(followerDocId)
+        && followerDocId == incoming().followerId + "_" + incoming().followingId
+        && isValidFollower(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/users/$(incoming().followingId));
+      allow delete: if isSignedIn() && existing().followerId == request.auth.uid;
+    }
+
+    match /searchHistory/{historyId} {
+      function isValidSearchHistory(data) {
+        return data.keys().hasAll(['userId', 'query', 'createdAt'])
+        && data.userId is string && data.userId == request.auth.uid
+        && data.query is string && data.query.size() > 0 && data.query.size() <= 200
+        && data.createdAt is timestamp;
+      }
+
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(historyId)
+        && isValidSearchHistory(incoming())
+        && incoming().createdAt == request.time;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /saves/{saveId} {
+      function isValidSave(data) {
+        return data.keys().hasAll(['postId', 'userId', 'createdAt'])
+        && data.postId is string && data.postId.size() > 0
+        && data.userId is string && data.userId == request.auth.uid
+        && data.createdAt is timestamp;
+      }
+      
+      allow get: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(saveId)
+        && saveId == incoming().postId + "_" + incoming().userId
+        && isValidSave(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /commentVotes/{voteId} {
+      function isValidVote(data) {
+        return data.keys().hasAll(['commentId', 'postId', 'userId', 'voteType', 'createdAt'])
+        && data.commentId is string && data.commentId.size() > 0
+        && data.postId is string && data.postId.size() > 0
+        && data.userId is string && data.userId == request.auth.uid
+        && data.voteType in [1, -1]
+        && data.createdAt is timestamp;
+      }
+
+      allow read: if true;
+      allow create: if isSignedIn()
+        && isValidId(voteId)
+        && voteId == incoming().userId + "_" + incoming().commentId
+        && isValidVote(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid 
+        && isValidVote(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['voteType', 'updatedAt']);
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /shares/{shareId} {
+      function isValidShare(data) {
+        return data.keys().hasAll(['postId', 'userId', 'createdAt'])
+        && data.postId is string && data.postId.size() > 0
+        && data.userId is string && data.userId == request.auth.uid
+        && data.createdAt is timestamp;
+      }
+      
+      allow read: if true;
+      allow create: if isSignedIn()
+        && isValidId(shareId)
+        && shareId == incoming().postId + "_" + incoming().userId
+        && isValidShare(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+      allow update: if isSignedIn()
+        && isValidId(shareId)
+        && shareId == incoming().postId + "_" + incoming().userId
+        && isValidShare(incoming())
+        && incoming().userId == existing().userId
+        && incoming().postId == existing().postId;
+    }
+    match /boosts/{boostId} {
+        allow read, write: if false; // Removed to cleanup
+    }
+    match /reports/{reportId} {
+        function isValidReport(data) {
+            return data.keys().hasAll(['postId', 'userId', 'userName', 'uname', 'reason', 'createdAt'])
+            && data.postId is string && data.postId.size() > 0
+            && data.userId is string && data.userId.size() > 0
+            && data.userName is string
+            && data.uname is string
+            && data.reason is string
+            && (data.keys().hasAny(['recentActivity']) == false || data.recentActivity is map)
+            && (data.keys().hasAny(['suggestions']) == false || data.suggestions is string)
+            && data.createdAt is timestamp;
+        }
+
+        allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+        allow create: if isSignedIn()
+          && isValidId(reportId)
+          && isValidReport(incoming())
+          && incoming().userId == request.auth.uid
+          && incoming().createdAt == request.time;
+        allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /searchCounts/{termId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /tagCounts/{tagId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

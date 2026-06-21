@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --color-buildops-bg: #080A0F;
+  --color-buildops-card: #11141B;
+  --color-buildops-border: #222834;
+  --color-buildops-text: #F4F7FB;
+  --color-buildops-text-secondary: #9CA3AF;
+  --color-buildops-blue: #3B82F6;
+  --color-buildops-green: #22C55E;
+  --color-buildops-orange: #F59E0B;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  @media (max-width: 768px) {
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    max-width: 100vw;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    @apply bg-buildops-bg text-buildops-text font-sans antialiased selection:bg-buildops-blue/30 selection:text-white;
+    max-width: 100vw;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  input, textarea, select {
+    @apply text-buildops-text bg-transparent;
+  }
+}
