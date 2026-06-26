@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { ThumbsUp, Play, MessageSquare, BarChart2, Share, CheckCircle2, MoreVertical, AlertTriangle, Info, Edit2, Trash2, Bookmark, User, Upload, RotateCcw, Github, Globe } from "lucide-react";
+import { ThumbsUp, Play, MessageSquare, BarChart2, Share2, CheckCircle2, MoreVertical, AlertTriangle, Info, Edit2, Trash2, Bookmark, User, RotateCcw, Github, Globe } from "lucide-react";
 import { toast } from 'sonner';
 import { cn, formatCount, formatPostTime } from "@/src/lib/utils";
 import { doc, getDoc, updateDoc, writeBatch, increment, collection, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
@@ -795,7 +795,7 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
                  whileTap={{ scale: 0.8 }} 
                  className="p-1.5 rounded-full group-hover:bg-buildops-blue/10 transition-colors"
               >
-                <Upload className="w-5 h-5" />
+                <Share2 className="w-5 h-5" />
               </motion.div>
               <span>{formatCount(shares)}</span>
             </button>

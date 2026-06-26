@@ -1,4 +1,4 @@
-import { Brain, Hammer, MessagesSquare, MessageSquare, Play, ThumbsUp, ThumbsDown, ArrowUp, Zap, X, Image as ImageIcon, CheckCircle2, MoreVertical, AlertTriangle, Info, Share as Share2, UserPlus, Edit2, Trash2, ChevronDown, ChevronRight, Bookmark, Sparkles, User, Undo2, ArrowLeft, ListFilter, Upload, Eye, BarChart2, Search, Github, Globe } from "lucide-react";
+import { Brain, Hammer, MessagesSquare, MessageSquare, Play, ThumbsUp, ThumbsDown, ArrowUp, Zap, X, Image as ImageIcon, CheckCircle2, MoreVertical, AlertTriangle, Info, Share2, UserPlus, Edit2, Trash2, ChevronDown, ChevronRight, Bookmark, Sparkles, User, Undo2, ArrowLeft, ListFilter, Eye, BarChart2, Search, Github, Globe } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { collection, doc, getDoc, updateDoc, writeBatch, onSnapshot, query, where, setDoc, deleteDoc, increment, serverTimestamp, getDocs } from "firebase/firestore";
@@ -1168,7 +1168,7 @@ export function ProblemDetail() {
                           onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); handleShare(); }} 
                           className="w-full text-left px-4 py-2.5 text-sm text-buildops-text hover:bg-white/5 transition-colors flex items-center gap-2.5 cursor-pointer border-0 bg-transparent font-medium"
                         >
-                          <Upload className="w-4 h-4 text-buildops-text-secondary" />
+                          <Share2 className="w-4 h-4 text-buildops-text-secondary" />
                           Share Post
                         </button>
                         <button 
@@ -1561,7 +1561,7 @@ export function ProblemDetail() {
                className="flex items-center justify-center flex-1 gap-1.5 hover:text-buildops-blue transition-colors group"
             >
               <div className="p-1.5 flex items-center justify-center rounded-full group-hover:bg-buildops-blue/10 transition-colors">
-                <Upload className="w-5 h-5" />
+                <Share2 className="w-5 h-5" />
               </div>
               <span className="font-medium">{formatCount(post.stats?.sharesCount || 0)}</span>
             </button>
