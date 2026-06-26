@@ -82,7 +82,7 @@ const postsSearch = new MiniSearch({
 
 const usersSearch = new MiniSearch({
   fields: ['displayName', 'handle', 'interests_string', 'bio'], 
-  storeFields: ['displayName', 'handle', 'photoURL', 'interests', 'bio', 'role'], 
+  storeFields: ['displayName', 'handle', 'photoURL', 'interests', 'bio', 'role', 'email'], 
 });
 
 const commentsSearch = new MiniSearch({
@@ -202,7 +202,7 @@ async function initMeiliIndexes() {
 
     await meiliClient.index('users').updateSettings({
       searchableAttributes: ['displayName', 'handle', 'interests_string', 'bio'],
-      displayedAttributes: ['id', 'displayName', 'handle', 'photoURL', 'interests', 'bio', 'role'],
+      displayedAttributes: ['id', 'displayName', 'handle', 'photoURL', 'interests', 'bio', 'role', 'email'],
     }).catch(() => {});
 
     await meiliClient.index('comments').updateSettings({
@@ -344,8 +344,7 @@ async function startServer() {
           // Transform and format the results to match search page expectations
           const enhancedPostResults = postsRes.hits.filter(pr => {
              if (pr.status === 'trashed') return false;
-             const author = backendUsersMap.get(pr.authorId);
-             return author && author.email && author.email.trim() !== "";
+             return true;
           }).map(pr => {
              const likes = pr.stats?.likesCount || 0;
              const comments = pr.stats?.commentsCount || 0;
@@ -362,10 +361,7 @@ async function startServer() {
              };
           }).sort((a, b) => b.customScore - a.customScore);
 
-          const enhancedUserResults = usersRes.hits.filter(ur => {
-             const uProfile = backendUsersMap.get(ur.id);
-             return uProfile && uProfile.email && uProfile.email.trim() !== "";
-          }).map(ur => {
+          const enhancedUserResults = usersRes.hits.map(ur => {
              const roleBoost = ur.role === 'admin' || ur.role === 'verified' ? 1.2 : 1;
              const relevanceScore = ur._rankingScore || 1;
              const customScore = relevanceScore * roleBoost;
@@ -375,10 +371,7 @@ async function startServer() {
              };
           }).sort((a, b) => b.customScore - a.customScore);
 
-          const commentResults = commentsRes.hits.filter(cr => {
-             const author = backendUsersMap.get(cr.authorId);
-             return author && author.email && author.email.trim() !== "";
-          });
+          const commentResults = commentsRes.hits;
 
           return res.json({
             posts: enhancedPostResults,
@@ -404,9 +397,7 @@ async function startServer() {
       // Enhance & Filter post results with engagement score
       const enhancedPostResults = postResults.filter(pr => {
          if (pr.status === 'trashed') return false;
-         // Require a Google-verified author (non-empty email in user profile)
-         const author = backendUsersMap.get(pr.authorId);
-         return author && author.email && author.email.trim() !== "";
+         return true;
       }).map(pr => {
          const likes = pr.stats?.likesCount || 0;
          const comments = pr.stats?.commentsCount || 0;
@@ -434,11 +425,7 @@ async function startServer() {
         boost: { handle: 2, displayName: 2, interests_string: 1.5 } 
       });
 
-      const enhancedUserResults = userResults.filter(ur => {
-         // Require Google-verified email
-         const uProfile = backendUsersMap.get(ur.id);
-         return uProfile && uProfile.email && uProfile.email.trim() !== "";
-      }).map(ur => {
+      const enhancedUserResults = userResults.map(ur => {
          // Optionally enhance user search depending on followers/following/proofScore if available
          // currently stats not included in usersSearch storeFields but we have role
          const roleBoost = ur.role === 'admin' || ur.role === 'verified' ? 1.2 : 1;
@@ -450,11 +437,7 @@ async function startServer() {
          };
       }).sort((a, b) => b.customScore - a.customScore);
 
-      const commentResults = commentsSearch.search(term, { prefix: true, fuzzy: 0.2 }).filter(cr => {
-         // Require Google-verified email for parent thread author or comment author
-         const author = backendUsersMap.get(cr.authorId);
-         return author && author.email && author.email.trim() !== "";
-      });
+      const commentResults = commentsSearch.search(term, { prefix: true, fuzzy: 0.2 });
 
       res.json({
         posts: enhancedPostResults.slice(0, 50), // limits
