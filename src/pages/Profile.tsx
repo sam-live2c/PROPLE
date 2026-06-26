@@ -570,7 +570,7 @@ export function Profile() {
                   ) : (
                     isOwnProfile && (
                       <button
-                        onClick={() => navigate("/settings/profile")}
+                        onClick={() => navigate("/settings/profile", { state: { focusBio: true } })}
                         className="text-buildops-blue font-bold hover:underline cursor-pointer text-sm flex items-center gap-1"
                       >
                         <Plus className="w-4 h-4" />

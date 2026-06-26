@@ -263,6 +263,7 @@ export function Settings() {
   const [userLocation, setUserLocation] = useState("");
   const [gender, setGender] = useState("Prefer not to say");
   const [bio, setBio] = useState("");
+  const bioRef = useRef<HTMLTextAreaElement>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [locationPrivate, setLocationPrivate] = useState(false);
   const [genderPrivate, setGenderPrivate] = useState(false);
@@ -768,6 +769,18 @@ export function Settings() {
   const blocker = useConfirmNavigation(hasChanges);
 
   useEffect(() => {
+    if (activeTab === "profile" && locationPath.state?.focusBio) {
+      const timer = setTimeout(() => {
+        if (bioRef.current) {
+          bioRef.current.focus();
+          bioRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, locationPath.state]);
+
+  useEffect(() => {
     if (user) {
       getDoc(doc(db, "users", user.uid)).then((snap: any) => {
         if (snap.exists()) setDbUser(snap.data());
@@ -1223,10 +1236,11 @@ export function Settings() {
                           <button
                             type="button"
                             onClick={() => setBio("")}
-                            className="text-rose-400 hover:text-rose-300 cursor-pointer flex items-center justify-center p-0.5 rounded-full hover:bg-rose-500/10 transition-colors"
+                            className="text-rose-400 hover:text-rose-300 cursor-pointer flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
                             title="Clear Bio"
                           >
                             <X className="w-3.5 h-3.5" />
+                            <span>Clear</span>
                           </button>
                         )}
                       </div>
@@ -1235,6 +1249,7 @@ export function Settings() {
                       </span>
                     </div>
                     <textarea
+                      ref={bioRef}
                       placeholder="e.g., Systems Builder"
                       rows={3}
                       className="w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-[14px] px-4 py-2.5 text-[15px] outline-none focus:border-white/20 transition-all font-medium placeholder-buildops-text-secondary/50 resize-none"
