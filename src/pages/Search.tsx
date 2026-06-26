@@ -1230,16 +1230,16 @@ export function Search() {
 
         {/* Suggestions Overlay - Nested inside the sticky wrapper to completely prevent overlapping issues on mobile */}
         {searchInput !== searchQuery && searchInput.trim().length > 0 && (
-          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-1 border-t border-buildops-border">
+          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-0">
             {unifiedSuggestions.length === 0 ? (
-              <div className="flex items-center gap-4 px-4 py-3 border-b border-buildops-border/30">
-                <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />
-                <span className="flex-1 text-buildops-text text-[15px]">
+              <div className="flex items-center gap-3 px-4 py-2 border-b border-buildops-border/30">
+                <SearchIcon className="w-4 h-4 text-buildops-text-secondary shrink-0" />
+                <span className="flex-1 text-buildops-text text-sm">
                   {searchInput}
                 </span>
               </div>
             ) : (
-              <div className="flex flex-col py-2">
+              <div className="flex flex-col pt-0 pb-2">
                 {unifiedSuggestions.map((sug, idx) => {
                   if (sug.type === "user") {
                     const u = sug.user;
@@ -1249,9 +1249,9 @@ export function Search() {
                         onClick={() => {
                           navigate(`/profile/${u.id}`);
                         }}
-                        className="flex items-center gap-3 px-4 py-3 active:bg-buildops-card transition-colors cursor-pointer group text-buildops-text"
+                        className="flex items-center gap-3 px-4 py-2 active:bg-buildops-card transition-colors cursor-pointer group text-buildops-text"
                       >
-                        <div className="w-8 h-8 rounded-full border border-buildops-border bg-buildops-bg overflow-hidden flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-full border border-buildops-border bg-buildops-bg overflow-hidden flex items-center justify-center shrink-0">
                           {u.photoURL ? (
                             <img
                               src={u.photoURL}
@@ -1259,15 +1259,15 @@ export function Search() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <User className="w-4 h-4 text-buildops-text-secondary" />
+                            <User className="w-3.5 h-3.5 text-buildops-text-secondary" />
                           )}
                         </div>
                         <div className="flex flex-col flex-1 min-w-0">
-                          <span className="text-buildops-text text-[15px] line-clamp-1 font-medium break-all">
+                          <span className="text-buildops-text text-sm line-clamp-1 font-medium break-all">
                             {u.displayName}
                           </span>
                           {(u.username || u.handle) && (
-                            <span className="text-sm text-buildops-text-secondary line-clamp-1 break-all">
+                            <span className="text-xs text-buildops-text-secondary line-clamp-1 break-all">
                               @{u.username || u.handle}
                             </span>
                           )}
@@ -1279,9 +1279,9 @@ export function Search() {
                               u.displayName || u.username || u.handle || "",
                             );
                           }}
-                          className="p-2 -mr-2 text-buildops-text-secondary"
+                          className="p-1 -mr-1 text-buildops-text-secondary"
                         >
-                          <ArrowUpLeft className="w-5 h-5 shrink-0" />
+                          <ArrowUpLeft className="w-4 h-4 shrink-0" />
                         </button>
                       </div>
                     );
@@ -1292,14 +1292,14 @@ export function Search() {
                       onClick={() => {
                         navigate(`/search?q=${encodeURIComponent(sug.text)}`);
                       }}
-                      className="flex items-center gap-4 px-4 py-3 active:bg-buildops-card transition-colors cursor-pointer group"
+                      className="flex items-center gap-3 px-4 py-2 active:bg-buildops-card transition-colors cursor-pointer group"
                     >
                       {sug.isHistory ? (
-                        <Clock className="w-5 h-5 text-buildops-text-secondary shrink-0" />
+                        <Clock className="w-4 h-4 text-buildops-text-secondary shrink-0" />
                       ) : (
-                        <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />
+                        <SearchIcon className="w-4 h-4 text-buildops-text-secondary shrink-0" />
                       )}
-                      <span className="flex-1 text-buildops-text text-[15px] font-medium line-clamp-1 break-all">
+                      <span className="flex-1 text-buildops-text text-sm font-medium line-clamp-1 break-all">
                         {sug.text}
                       </span>
                       <button
@@ -1307,9 +1307,9 @@ export function Search() {
                           e.stopPropagation();
                           setSearchInput(sug.text);
                         }}
-                        className="p-2 -mr-2 text-buildops-text-secondary"
+                        className="p-1 -mr-1 text-buildops-text-secondary"
                       >
-                        <ArrowUpLeft className="w-5 h-5 shrink-0" />
+                        <ArrowUpLeft className="w-4 h-4 shrink-0" />
                       </button>
                     </div>
                   );
