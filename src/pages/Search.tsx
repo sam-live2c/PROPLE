@@ -1230,7 +1230,7 @@ export function Search() {
 
         {/* Suggestions Overlay - Nested inside the sticky wrapper to completely prevent overlapping issues on mobile */}
         {searchInput !== searchQuery && searchInput.trim().length > 0 && (
-          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-0">
+          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-0 border-t border-buildops-border">
             {unifiedSuggestions.length === 0 ? (
               <div className="flex items-center gap-3 px-4 py-2 border-b border-buildops-border/30">
                 <SearchIcon className="w-4 h-4 text-buildops-text-secondary shrink-0" />
