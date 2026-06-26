@@ -24,9 +24,13 @@ export function CodeEditor({ value, onChange, placeholder, height = "150px", dra
   // Load draft on mount
   useEffect(() => {
     if (draftKey) {
-      const saved = localStorage.getItem(draftKey);
-      if (saved && saved !== value) {
-        onChange(saved);
+      try {
+        const saved = localStorage.getItem(draftKey);
+        if (saved && saved !== value) {
+          onChange(saved);
+        }
+      } catch (e) {
+        console.error("Failed to read editor draft from localStorage:", e);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -36,9 +40,13 @@ export function CodeEditor({ value, onChange, placeholder, height = "150px", dra
   useEffect(() => {
     if (draftKey && value) {
       const timeoutId = setTimeout(() => {
-        localStorage.setItem(draftKey, value);
-        setSaveStatus('Draft saved');
-        setTimeout(() => setSaveStatus(''), 2000);
+        try {
+          localStorage.setItem(draftKey, value);
+          setSaveStatus('Draft saved');
+          setTimeout(() => setSaveStatus(''), 2000);
+        } catch (e) {
+          console.warn("Could not save editor draft to localStorage:", e);
+        }
       }, 1000);
       return () => clearTimeout(timeoutId);
     }

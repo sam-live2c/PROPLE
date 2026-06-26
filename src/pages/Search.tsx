@@ -1157,125 +1157,155 @@ export function Search() {
 
   return (
     <div className="flex flex-col min-h-screen pb-20 md:pb-0">
-      {/* Search Top Bar (Visible on mobile always, on desktop only when results are active) */}
+      {/* Search Top Bar Wrapper (Visible on mobile always, on desktop only when results are active) */}
       <div
         className={cn(
-          "sticky top-0 z-50 bg-buildops-bg/95 backdrop-blur-md border-b border-buildops-border px-4 h-14 flex gap-3 items-center w-full max-w-5xl mx-auto",
+          "sticky top-0 z-50 bg-buildops-bg/95 backdrop-blur-md border-b border-buildops-border w-full max-w-5xl mx-auto",
           !searchQuery ? "md:hidden" : "",
         )}
       >
-        <button
-          onClick={() => navigate(-1)}
-          className="p-1 -ml-1 text-buildops-text-secondary hover:text-buildops-text shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <form
-          onSubmit={handleSearch}
-          className="flex-1 relative flex items-center gap-2"
-        >
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onFocus={(e) => {
-                const len = e.currentTarget.value.length;
-                e.currentTarget.setSelectionRange(len, len);
-                if (searchQuery) {
-                  navigate("/search");
-                }
-              }}
-              onClick={() => {
-                if (searchQuery) {
-                  navigate("/search");
-                }
-              }}
-              placeholder="Search posts, comments, builders..."
-              className="w-full bg-buildops-card border border-buildops-border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none focus:border-buildops-blue cursor-text"
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setSearchInput("");
-                  navigate("/search");
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-buildops-text-secondary hover:text-buildops-text focus:outline-none"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-buildops-text-secondary focus:outline-none"
-              >
-                <SearchIcon className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </form>
-        {searchQuery && (
+        <div className="h-14 px-4 flex gap-3 items-center w-full">
           <button
-            className="flex items-center gap-1.5 p-2 text-sm text-buildops-text-secondary bg-buildops-card border border-buildops-border rounded-md shrink-0 focus:outline-none focus:ring-1 focus:ring-buildops-blue"
-            onClick={() => setShowMobileFilters(true)}
+            onClick={() => navigate(-1)}
+            className="p-1 -ml-1 text-buildops-text-secondary hover:text-buildops-text shrink-0"
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-        )}
-      </div>
-
-      {searchInput !== searchQuery && searchInput.trim().length > 0 && (
-        <div className="fixed top-14 left-0 right-0 bottom-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-1 border-t border-buildops-border">
-          {unifiedSuggestions.length === 0 ? (
-            <div className="flex items-center gap-4 px-4 py-3 border-b border-buildops-border/30">
-              <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />
-              <span className="flex-1 text-buildops-text text-[15px]">
-                {searchInput}
-              </span>
+          <form
+            onSubmit={handleSearch}
+            className="flex-1 relative flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onFocus={(e) => {
+                  const len = e.currentTarget.value.length;
+                  e.currentTarget.setSelectionRange(len, len);
+                  if (searchQuery) {
+                    navigate("/search");
+                  }
+                }}
+                onClick={() => {
+                  if (searchQuery) {
+                    navigate("/search");
+                  }
+                }}
+                placeholder="Search posts, comments, builders..."
+                className="w-full bg-buildops-card border border-buildops-border rounded-full py-2 pl-4 pr-10 text-sm focus:outline-none focus:border-buildops-blue cursor-text"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearchInput("");
+                    navigate("/search");
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-buildops-text-secondary hover:text-buildops-text focus:outline-none"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-buildops-text-secondary focus:outline-none"
+                >
+                  <SearchIcon className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="flex flex-col py-2">
-              {unifiedSuggestions.map((sug, idx) => {
-                if (sug.type === "user") {
-                  const u = sug.user;
+          </form>
+          {searchQuery && (
+            <button
+              className="flex items-center gap-1.5 p-2 text-sm text-buildops-text-secondary bg-buildops-card border border-buildops-border rounded-md shrink-0 focus:outline-none focus:ring-1 focus:ring-buildops-blue"
+              onClick={() => setShowMobileFilters(true)}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Suggestions Overlay - Nested inside the sticky wrapper to completely prevent overlapping issues on mobile */}
+        {searchInput !== searchQuery && searchInput.trim().length > 0 && (
+          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-1 border-t border-buildops-border">
+            {unifiedSuggestions.length === 0 ? (
+              <div className="flex items-center gap-4 px-4 py-3 border-b border-buildops-border/30">
+                <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />
+                <span className="flex-1 text-buildops-text text-[15px]">
+                  {searchInput}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col py-2">
+                {unifiedSuggestions.map((sug, idx) => {
+                  if (sug.type === "user") {
+                    const u = sug.user;
+                    return (
+                      <div
+                        key={`m-sug-user-${idx}`}
+                        onClick={() => {
+                          navigate(`/profile/${u.id}`);
+                        }}
+                        className="flex items-center gap-3 px-4 py-3 active:bg-buildops-card transition-colors cursor-pointer group text-buildops-text"
+                      >
+                        <div className="w-8 h-8 rounded-full border border-buildops-border bg-buildops-bg overflow-hidden flex items-center justify-center shrink-0">
+                          {u.photoURL ? (
+                            <img
+                              src={u.photoURL}
+                              alt={u.displayName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <User className="w-4 h-4 text-buildops-text-secondary" />
+                          )}
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-buildops-text text-[15px] line-clamp-1 font-medium break-all">
+                            {u.displayName}
+                          </span>
+                          {(u.username || u.handle) && (
+                            <span className="text-sm text-buildops-text-secondary line-clamp-1 break-all">
+                              @{u.username || u.handle}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSearchInput(
+                              u.displayName || u.username || u.handle || "",
+                            );
+                          }}
+                          className="p-2 -mr-2 text-buildops-text-secondary"
+                        >
+                          <ArrowUpLeft className="w-5 h-5 shrink-0" />
+                        </button>
+                      </div>
+                    );
+                  }
                   return (
                     <div
-                      key={`m-sug-user-${idx}`}
+                      key={`m-sug-${idx}`}
                       onClick={() => {
-                        navigate(`/profile/${u.id}`);
+                        navigate(`/search?q=${encodeURIComponent(sug.text)}`);
                       }}
-                      className="flex items-center gap-3 px-4 py-3 active:bg-buildops-card transition-colors cursor-pointer group text-buildops-text"
+                      className="flex items-center gap-4 px-4 py-3 active:bg-buildops-card transition-colors cursor-pointer group"
                     >
-                      <div className="w-8 h-8 rounded-full border border-buildops-border bg-buildops-bg overflow-hidden flex items-center justify-center shrink-0">
-                        {u.photoURL ? (
-                          <img
-                            src={u.photoURL}
-                            alt={u.displayName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User className="w-4 h-4 text-buildops-text-secondary" />
-                        )}
-                      </div>
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-buildops-text text-[15px] line-clamp-1 font-medium break-all">
-                          {u.displayName}
-                        </span>
-                        {(u.username || u.handle) && (
-                          <span className="text-sm text-buildops-text-secondary line-clamp-1 break-all">
-                            @{u.username || u.handle}
-                          </span>
-                        )}
-                      </div>
+                      {sug.isHistory ? (
+                        <Clock className="w-5 h-5 text-buildops-text-secondary shrink-0" />
+                      ) : (
+                        <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />
+                      )}
+                      <span className="flex-1 text-buildops-text text-[15px] font-medium line-clamp-1 break-all">
+                        {sug.text}
+                      </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSearchInput(
-                            u.displayName || u.username || u.handle || "",
-                          );
+                          setSearchInput(sug.text);
                         }}
                         className="p-2 -mr-2 text-buildops-text-secondary"
                       >
@@ -1283,43 +1313,16 @@ export function Search() {
                       </button>
                     </div>
                   );
-                }
-                return (
-                  <div
-                    key={`m-sug-${idx}`}
-                    onClick={() => {
-                      navigate(`/search?q=${encodeURIComponent(sug.text)}`);
-                    }}
-                    className="flex items-center gap-4 px-4 py-3 active:bg-buildops-card transition-colors cursor-pointer group"
-                  >
-                    {sug.isHistory ? (
-                      <Clock className="w-5 h-5 text-buildops-text-secondary shrink-0" />
-                    ) : (
-                      <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />
-                    )}
-                    <span className="flex-1 text-buildops-text text-[15px] font-medium line-clamp-1 break-all">
-                      {sug.text}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSearchInput(sug.text);
-                      }}
-                      className="p-2 -mr-2 text-buildops-text-secondary"
-                    >
-                      <ArrowUpLeft className="w-5 h-5 shrink-0" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {!searchQuery ? (
         /* SEARCH HOME STATE */
-        <div className="flex-1 flex flex-col items-center pt-[2px] md:pt-16 max-w-3xl mx-auto w-full px-4">
+        <div className="flex-1 flex flex-col items-center pt-1 md:pt-16 max-w-3xl mx-auto w-full px-4">
           <h1 className="text-2xl md:text-3xl font-bold text-buildops-text mb-8 hidden md:block">
             Search engineering posts
           </h1>
@@ -1480,10 +1483,12 @@ export function Search() {
                                       const updated = prev.filter(
                                         (s) => s.id !== search.id,
                                       );
-                                      localStorage.setItem(
-                                        "recentSearches",
-                                        JSON.stringify(updated),
-                                      );
+                                      try {
+                                        localStorage.setItem(
+                                          "recentSearches",
+                                          JSON.stringify(updated),
+                                        );
+                                      } catch (e) {}
 
                                       return updated;
                                     });
@@ -1987,10 +1992,12 @@ export function Search() {
                   setLongPressedSearchId(null);
                   setRecentSearches((prev) => {
                     const updated = prev.filter((s) => s.id !== searchId);
-                    localStorage.setItem(
-                      "recentSearches",
-                      JSON.stringify(updated),
-                    );
+                    try {
+                      localStorage.setItem(
+                        "recentSearches",
+                        JSON.stringify(updated),
+                      );
+                    } catch (e) {}
                     return updated;
                   });
                   if (

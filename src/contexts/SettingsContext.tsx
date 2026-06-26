@@ -61,19 +61,23 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => {
-    const saved = localStorage.getItem('buildops-settings');
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('buildops-settings');
+      if (saved) {
         return { ...defaultSettings, ...JSON.parse(saved) };
-      } catch (e) {
-        return defaultSettings;
       }
+    } catch (e) {
+      console.warn("localStorage is not available:", e);
     }
     return defaultSettings;
   });
 
   useEffect(() => {
-    localStorage.setItem('buildops-settings', JSON.stringify(settings));
+    try {
+      localStorage.setItem('buildops-settings', JSON.stringify(settings));
+    } catch (e) {
+      console.warn("Could not save settings to localStorage:", e);
+    }
     
     // Apply workspace mode
     if (settings.workspaceMode) {

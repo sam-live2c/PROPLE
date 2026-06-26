@@ -42,15 +42,15 @@ export function SubmitSolution() {
 
   // Load draft on mount
   useEffect(() => {
-    const saved = localStorage.getItem(`submit_solution_draft_full_${id}`);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(`submit_solution_draft_full_${id}`);
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.title) setTitle(parsed.title);
         if (parsed.body) setBody(parsed.body);
-      } catch (e) {
-        console.error("Failed to parse draft", e);
       }
+    } catch (e) {
+      console.error("Failed to read draft from localStorage:", e);
     }
   }, [id]);
 

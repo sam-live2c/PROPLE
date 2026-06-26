@@ -323,7 +323,9 @@ export function Profile() {
   };
 
   const handleSignOut = async () => {
-    localStorage.removeItem("recentSearches");
+    try {
+      localStorage.removeItem("recentSearches");
+    } catch (e) {}
     await logout();
     navigate("/");
   };

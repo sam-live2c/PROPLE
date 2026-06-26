@@ -50,9 +50,9 @@ export function SubmitBuild() {
 
   // Load draft on mount
   useEffect(() => {
-    const saved = localStorage.getItem('submit_build_draft_full');
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('submit_build_draft_full');
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.title) setTitle(parsed.title);
         if (parsed.description) setDescription(parsed.description);
@@ -61,9 +61,9 @@ export function SubmitBuild() {
         if (parsed.tags) setTags(parsed.tags);
         if (parsed.tagInput) setTagInput(parsed.tagInput);
         if (parsed.category) setCategory(parsed.category);
-      } catch (e) {
-        console.error("Failed to parse draft", e);
       }
+    } catch (e) {
+      console.error("Failed to read draft from localStorage:", e);
     }
   }, []);
 
