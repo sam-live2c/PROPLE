@@ -211,15 +211,100 @@ async function initMeiliIndexes() {
     }).catch(() => {});
 
     console.log("MeiliSearch indexes initialized & configured!");
+
+    // Stagger/Push existing data to MeiliSearch to ensure it has all documents
+    if (db) {
+      console.log("Syncing initial Firestore data to MeiliSearch...");
+      const [postsSnap, usersSnap, commentsSnap] = await Promise.all([
+        getDocs(collection(db, "posts")),
+        getDocs(collection(db, "users")),
+        getDocs(collection(db, "comments"))
+      ]);
+
+      const postsDocs = postsSnap.docs.map(doc => {
+        const data = doc.data();
+        return { id: doc.id, ...data, tags_string: Array.isArray(data.tags) ? data.tags.join(" ") : "" };
+      });
+      if (postsDocs.length > 0) {
+        await meiliClient.index('posts').addDocuments(postsDocs);
+      }
+
+      const usersDocs = usersSnap.docs.map(doc => {
+        const data = doc.data();
+        return { id: doc.id, ...data, interests_string: Array.isArray(data.interests) ? data.interests.join(" ") : "" };
+      });
+      if (usersDocs.length > 0) {
+        await meiliClient.index('users').addDocuments(usersDocs);
+      }
+
+      const commentsDocs = commentsSnap.docs.map(doc => {
+        return { id: doc.id, ...doc.data() };
+      });
+      if (commentsDocs.length > 0) {
+        await meiliClient.index('comments').addDocuments(commentsDocs);
+      }
+      console.log("All initial data synced to MeiliSearch successfully!");
+    }
   } catch (error) {
     console.warn("MeiliSearch not reachable or failed to initialize. Falling back to MiniSearch.", error);
     isMeiliActive = false;
   }
 }
 
-// Start realtime sync & MeiliSearch index initialization
-setupSearchRealtimeSync();
-initMeiliIndexes();
+async function runInitialDataLoad() {
+  if (!db) {
+    console.warn("Firestore not initialized, skipping initial search indexing.");
+    return;
+  }
+  try {
+    console.log("Pre-populating search indices from Firestore...");
+    const [postsSnap, usersSnap, commentsSnap] = await Promise.all([
+      getDocs(collection(db, "posts")),
+      getDocs(collection(db, "users")),
+      getDocs(collection(db, "comments"))
+    ]);
+
+    postsSnap.docs.forEach(doc => {
+      const data = doc.data();
+      const docData = { id: doc.id, ...data, tags_string: Array.isArray(data.tags) ? data.tags.join(" ") : "" };
+      try {
+        if (!postsSearch.has(docData.id)) postsSearch.add(docData);
+      } catch (e) {
+        // ignore duplicate
+      }
+    });
+
+    usersSnap.docs.forEach(doc => {
+      const data = doc.data();
+      const docData = { id: doc.id, ...data, interests_string: Array.isArray(data.interests) ? data.interests.join(" ") : "" };
+      backendUsersMap.set(docData.id, docData);
+      try {
+        if (!usersSearch.has(docData.id)) usersSearch.add(docData);
+      } catch (e) {
+        // ignore duplicate
+      }
+    });
+
+    commentsSnap.docs.forEach(doc => {
+      const docData = { id: doc.id, ...doc.data() };
+      try {
+        if (!commentsSearch.has(docData.id)) commentsSearch.add(docData);
+      } catch (e) {
+        // ignore duplicate
+      }
+    });
+
+    console.log(`Indices populated successfully! Posts: ${postsSnap.size}, Users: ${usersSnap.size}, Comments: ${commentsSnap.size}`);
+  } catch (error) {
+    console.error("Failed to run initial data load for search:", error);
+  }
+}
+
+// Start initial data pre-loading, then register real-time sync, and finally init MeiliSearch
+runInitialDataLoad().then(() => {
+  setupSearchRealtimeSync();
+  initMeiliIndexes();
+});
 
 
 async function startServer() {
