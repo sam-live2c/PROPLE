@@ -1160,7 +1160,7 @@ export function Search() {
       {/* Search Top Bar (Visible on mobile always, on desktop only when results are active) */}
       <div
         className={cn(
-          "sticky top-0 z-40 bg-buildops-bg/95 backdrop-blur-md border-b border-buildops-border px-4 h-14 flex gap-3 items-center w-full max-w-5xl mx-auto",
+          "sticky top-0 z-50 bg-buildops-bg/95 backdrop-blur-md border-b border-buildops-border px-4 h-14 flex gap-3 items-center w-full max-w-5xl mx-auto",
           !searchQuery ? "md:hidden" : "",
         )}
       >
@@ -1228,7 +1228,7 @@ export function Search() {
       </div>
 
       {searchInput !== searchQuery && searchInput.trim().length > 0 && (
-        <div className="fixed top-14 left-0 right-0 bottom-0 bg-buildops-bg z-50 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20">
+        <div className="fixed top-14 left-0 right-0 bottom-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-4">
           {unifiedSuggestions.length === 0 ? (
             <div className="flex items-center gap-4 px-4 py-3 border-b border-buildops-border/30">
               <SearchIcon className="w-5 h-5 text-buildops-text-secondary shrink-0" />

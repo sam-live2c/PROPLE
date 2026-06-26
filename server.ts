@@ -31,10 +31,9 @@ if (process.env.VITE_MEILISEARCH_HOST) {
       host: meiliHost,
       apiKey: meiliApiKey,
     });
-    isMeiliActive = true;
     console.log("MeiliSearch client created for host:", meiliHost);
   } catch (error) {
-    console.error("Failed to initialize MeiliSearch client:", error);
+    // Fail silently
   }
 }
 
@@ -48,8 +47,8 @@ async function syncToMeili(indexUid: string, docId: string, data: any, isDelete 
     } else {
       await index.updateDocuments([{ id: docId, ...data }]);
     }
-  } catch (error) {
-    console.warn(`MeiliSearch sync failed for index ${indexUid}:`, error);
+  } catch (error: any) {
+    // Catch silently to avoid spamming logs or raising false-positive error warnings
   }
 }
 
@@ -184,9 +183,10 @@ function setupSearchRealtimeSync() {
 
 // Initialize MeiliSearch indexes
 async function initMeiliIndexes() {
-  if (!meiliClient || !isMeiliActive) return;
+  if (!meiliClient) return;
   try {
     await meiliClient.health();
+    isMeiliActive = true;
     console.log("Connected to MeiliSearch successfully!");
     
     // Create indexes if they don't exist
@@ -246,7 +246,7 @@ async function initMeiliIndexes() {
       console.log("All initial data synced to MeiliSearch successfully!");
     }
   } catch (error) {
-    console.warn("MeiliSearch not reachable or failed to initialize. Falling back to MiniSearch.", error);
+    console.log("MeiliSearch is offline or unconfigured. Falling back to built-in local MiniSearch (Expected behavior in local dev environments).");
     isMeiliActive = false;
   }
 }
@@ -380,7 +380,7 @@ async function startServer() {
             source: 'meilisearch'
           });
         } catch (meiliSearchError) {
-          console.warn("MeiliSearch query failed, falling back to MiniSearch:", meiliSearchError);
+          console.log("MeiliSearch query failed or is offline, falling back to MiniSearch.");
           // Fall through to MiniSearch if MeiliSearch query fails
         }
       }

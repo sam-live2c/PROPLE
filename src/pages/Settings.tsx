@@ -1291,20 +1291,31 @@ export function Settings() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[14px] font-medium text-buildops-text-secondary">
-                        Bio
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="block text-[14px] font-medium text-buildops-text-secondary">
+                          Bio
+                        </label>
+                        {bio && (
+                          <button
+                            type="button"
+                            onClick={() => setBio("")}
+                            className="text-[11px] text-rose-400 hover:text-rose-300 font-medium cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
                       <span className="text-[11px] font-mono text-buildops-text-secondary/60">
-                        {bio.length}/160
+                        {200 - bio.length} characters remaining
                       </span>
                     </div>
-                    <input
-                      type="text"
+                    <textarea
                       placeholder="e.g., Systems Builder"
-                      className="w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-[14px] px-4 py-2.5 text-[15px] outline-none focus:border-white/20 transition-all font-medium placeholder-buildops-text-secondary/50"
+                      rows={3}
+                      className="w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-[14px] px-4 py-2.5 text-[15px] outline-none focus:border-white/20 transition-all font-medium placeholder-buildops-text-secondary/50 resize-none"
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
-                      maxLength={160}
+                      maxLength={200}
                     />
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">

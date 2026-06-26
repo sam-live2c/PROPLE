@@ -557,14 +557,36 @@ export function Profile() {
                   )}
                 </div>
 
-                <p className="text-buildops-text text-[14.7px] sm:text-[16.8px] whitespace-pre-wrap">
-                  {renderTextWithMentions(
-                    profileUser.bio !== undefined
-                      ? profileUser.bio
-                      : "Systems Builder | AI + Browser Infra",
-                    settings?.markdownRendering ?? false
+                <div className="space-y-1">
+                  {profileUser.bio ? (
+                    <div>
+                      <p className="text-buildops-text text-[14.7px] sm:text-[16.8px] whitespace-pre-wrap">
+                        {renderTextWithMentions(
+                          profileUser.bio,
+                          settings?.markdownRendering ?? false
+                        )}
+                      </p>
+                      {isOwnProfile && (
+                        <button
+                          onClick={() => navigate("/settings/profile")}
+                          className="text-xs text-buildops-blue hover:underline cursor-pointer mt-1"
+                        >
+                          edit bio
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    isOwnProfile && (
+                      <button
+                        onClick={() => navigate("/settings/profile")}
+                        className="text-buildops-blue font-bold hover:underline cursor-pointer text-sm flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        add bio
+                      </button>
+                    )
                   )}
-                </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
