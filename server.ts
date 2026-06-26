@@ -4,6 +4,54 @@ import MiniSearch from "minisearch";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, onSnapshot } from "firebase/firestore";
 import fs from "fs";
+import dotenv from "dotenv";
+import { Meilisearch } from "meilisearch";
+
+// Load environment variables
+dotenv.config();
+
+// Meilisearch initialization
+let rawMeiliHost = process.env.VITE_MEILISEARCH_HOST || "http://127.0.0.1:7700";
+rawMeiliHost = rawMeiliHost.trim();
+if (/^[a-f0-9]{64}$/i.test(rawMeiliHost)) {
+  rawMeiliHost = `https://ms-${rawMeiliHost}.edge.meilisearch.com`;
+} else if (rawMeiliHost && !rawMeiliHost.startsWith("http://") && !rawMeiliHost.startsWith("https://")) {
+  rawMeiliHost = `https://${rawMeiliHost}`;
+}
+
+const meiliHost = rawMeiliHost;
+const meiliApiKey = process.env.MEILISEARCH_MASTER_KEY || process.env.MEILISEARCH_API_KEY || process.env.VITE_MEILISEARCH_SEARCH_KEY || "masterKey";
+
+let meiliClient: Meilisearch | null = null;
+let isMeiliActive = false;
+
+if (process.env.VITE_MEILISEARCH_HOST) {
+  try {
+    meiliClient = new Meilisearch({
+      host: meiliHost,
+      apiKey: meiliApiKey,
+    });
+    isMeiliActive = true;
+    console.log("MeiliSearch client created for host:", meiliHost);
+  } catch (error) {
+    console.error("Failed to initialize MeiliSearch client:", error);
+  }
+}
+
+// Sync helper to update MeiliSearch
+async function syncToMeili(indexUid: string, docId: string, data: any, isDelete = false) {
+  if (!meiliClient || !isMeiliActive) return;
+  try {
+    const index = meiliClient.index(indexUid);
+    if (isDelete) {
+      await index.deleteDocument(docId);
+    } else {
+      await index.updateDocuments([{ id: docId, ...data }]);
+    }
+  } catch (error) {
+    console.warn(`MeiliSearch sync failed for index ${indexUid}:`, error);
+  }
+}
 
 // Initialize Firebase using the generated config
 // We read it from the file system to avoid import issues
@@ -51,7 +99,7 @@ function setupSearchRealtimeSync() {
     return;
   }
 
-  console.log("Starting backend real-time indexing into MiniSearch...");
+  console.log("Starting backend real-time indexing into MiniSearch & MeiliSearch...");
 
   onSnapshot(collection(db, "posts"), (snap) => {
     snap.docChanges().forEach(change => {
@@ -64,11 +112,14 @@ function setupSearchRealtimeSync() {
       try {
         if (change.type === 'added') {
           if (!postsSearch.has(docData.id)) postsSearch.add(docData);
+          syncToMeili('posts', docData.id, docData);
         } else if (change.type === 'modified') {
           if (postsSearch.has(docData.id)) postsSearch.replace(docData);
           else postsSearch.add(docData);
+          syncToMeili('posts', docData.id, docData);
         } else if (change.type === 'removed') {
           if (postsSearch.has(docData.id)) postsSearch.discard(docData.id);
+          syncToMeili('posts', docData.id, null, true);
         }
       } catch(e) {
         console.error("MiniSearch posts error:", e);
@@ -94,11 +145,14 @@ function setupSearchRealtimeSync() {
 
         if (change.type === 'added') {
           if (!usersSearch.has(docData.id)) usersSearch.add(docData);
+          syncToMeili('users', docData.id, docData);
         } else if (change.type === 'modified') {
           if (usersSearch.has(docData.id)) usersSearch.replace(docData);
           else usersSearch.add(docData);
+          syncToMeili('users', docData.id, docData);
         } else if (change.type === 'removed') {
           if (usersSearch.has(docData.id)) usersSearch.discard(docData.id);
+          syncToMeili('users', docData.id, null, true);
         }
       } catch(e) {
         console.error("MiniSearch users error:", e);
@@ -112,11 +166,14 @@ function setupSearchRealtimeSync() {
       try {
         if (change.type === 'added') {
           if (!commentsSearch.has(docData.id)) commentsSearch.add(docData);
+          syncToMeili('comments', docData.id, docData);
         } else if (change.type === 'modified') {
           if (commentsSearch.has(docData.id)) commentsSearch.replace(docData);
           else commentsSearch.add(docData);
+          syncToMeili('comments', docData.id, docData);
         } else if (change.type === 'removed') {
           if (commentsSearch.has(docData.id)) commentsSearch.discard(docData.id);
+          syncToMeili('comments', docData.id, null, true);
         }
       } catch(e) {
         console.error("MiniSearch comments error:", e);
@@ -125,8 +182,44 @@ function setupSearchRealtimeSync() {
   });
 }
 
-// Start realtime sync
+// Initialize MeiliSearch indexes
+async function initMeiliIndexes() {
+  if (!meiliClient || !isMeiliActive) return;
+  try {
+    await meiliClient.health();
+    console.log("Connected to MeiliSearch successfully!");
+    
+    // Create indexes if they don't exist
+    await meiliClient.createIndex('posts', { primaryKey: 'id' }).catch(() => {});
+    await meiliClient.createIndex('users', { primaryKey: 'id' }).catch(() => {});
+    await meiliClient.createIndex('comments', { primaryKey: 'id' }).catch(() => {});
+
+    // Set configuration
+    await meiliClient.index('posts').updateSettings({
+      searchableAttributes: ['title', 'body', 'category', 'tags_string'],
+      displayedAttributes: ['id', 'title', 'body', 'category', 'tags', 'authorId', 'type', 'status', 'createdAt', 'stats', 'ranking'],
+    }).catch(() => {});
+
+    await meiliClient.index('users').updateSettings({
+      searchableAttributes: ['displayName', 'handle', 'interests_string', 'bio'],
+      displayedAttributes: ['id', 'displayName', 'handle', 'photoURL', 'interests', 'bio', 'role'],
+    }).catch(() => {});
+
+    await meiliClient.index('comments').updateSettings({
+      searchableAttributes: ['body'],
+      displayedAttributes: ['id', 'body', 'postId', 'authorId', 'createdAt'],
+    }).catch(() => {});
+
+    console.log("MeiliSearch indexes initialized & configured!");
+  } catch (error) {
+    console.warn("MeiliSearch not reachable or failed to initialize. Falling back to MiniSearch.", error);
+    isMeiliActive = false;
+  }
+}
+
+// Start realtime sync & MeiliSearch index initialization
 setupSearchRealtimeSync();
+initMeiliIndexes();
 
 
 async function startServer() {
@@ -144,7 +237,7 @@ async function startServer() {
     res.json({ status: "ok", message: "Express backend is running!" });
   });
 
-      // REAL BACKEND SEARCH ENDPOINT using MiniSearch
+      // REAL BACKEND SEARCH ENDPOINT using MeiliSearch / MiniSearch fallback
   app.get("/api/search", async (req, res) => {
     try {
       const { q } = req.query;
@@ -152,6 +245,66 @@ async function startServer() {
       
       if (!term.trim()) {
         return res.json({ posts: [], users: [], comments: [] });
+      }
+
+      // If MeiliSearch is active and reachable, query MeiliSearch
+      if (isMeiliActive && meiliClient) {
+        try {
+          const [postsRes, usersRes, commentsRes] = await Promise.all([
+            meiliClient.index('posts').search(term, { limit: 50 }),
+            meiliClient.index('users').search(term, { limit: 20 }),
+            meiliClient.index('comments').search(term, { limit: 30 })
+          ]);
+
+          // Transform and format the results to match search page expectations
+          const enhancedPostResults = postsRes.hits.filter(pr => {
+             if (pr.status === 'trashed') return false;
+             const author = backendUsersMap.get(pr.authorId);
+             return author && author.email && author.email.trim() !== "";
+          }).map(pr => {
+             const likes = pr.stats?.likesCount || 0;
+             const comments = pr.stats?.commentsCount || 0;
+             const views = Math.max(pr.stats?.viewsCount || 0, 1);
+             const engagementScore = (likes * 2) + (comments * 3) + Math.log10(views);
+             // Default scoring if rank score is missing
+             const relevanceScore = pr._rankingScore || 1;
+             const customScore = relevanceScore * (1 + (engagementScore * 0.05));
+             return {
+                 ...pr,
+                 engagementScore,
+                 relevanceScore,
+                 customScore
+             };
+          }).sort((a, b) => b.customScore - a.customScore);
+
+          const enhancedUserResults = usersRes.hits.filter(ur => {
+             const uProfile = backendUsersMap.get(ur.id);
+             return uProfile && uProfile.email && uProfile.email.trim() !== "";
+          }).map(ur => {
+             const roleBoost = ur.role === 'admin' || ur.role === 'verified' ? 1.2 : 1;
+             const relevanceScore = ur._rankingScore || 1;
+             const customScore = relevanceScore * roleBoost;
+             return {
+                 ...ur,
+                 customScore
+             };
+          }).sort((a, b) => b.customScore - a.customScore);
+
+          const commentResults = commentsRes.hits.filter(cr => {
+             const author = backendUsersMap.get(cr.authorId);
+             return author && author.email && author.email.trim() !== "";
+          });
+
+          return res.json({
+            posts: enhancedPostResults,
+            users: enhancedUserResults,
+            comments: commentResults,
+            source: 'meilisearch'
+          });
+        } catch (meiliSearchError) {
+          console.warn("MeiliSearch query failed, falling back to MiniSearch:", meiliSearchError);
+          // Fall through to MiniSearch if MeiliSearch query fails
+        }
       }
 
       // Perform searches
@@ -222,6 +375,7 @@ async function startServer() {
         posts: enhancedPostResults.slice(0, 50), // limits
         users: enhancedUserResults.slice(0, 20),
         comments: commentResults.slice(0, 30),
+        source: 'minisearch'
       });
     } catch (err: any) {
       console.error(err);
