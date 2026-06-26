@@ -1236,7 +1236,7 @@ export function Settings() {
                           <button
                             type="button"
                             onClick={() => setBio("")}
-                            className="text-rose-400 hover:text-rose-300 cursor-pointer flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded hover:bg-rose-500/10 transition-colors"
+                            className="text-buildops-blue hover:text-blue-400 cursor-pointer flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded hover:bg-buildops-blue/10 transition-colors"
                             title="Clear Bio"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1271,12 +1271,11 @@ export function Settings() {
                           <button
                             type="button"
                             onClick={() => setLocationPrivate(!locationPrivate)}
-                            className={
-                              "flex items-center gap-1 text-[11px] font-bold transition-all px-2.5 py-0.5 rounded-full border " +
-                              (locationPrivate
-                                ? "bg-[#1E1215] border-rose-950/40 text-rose-450"
-                                : "bg-[#0E1525] border-blue-955/40 text-buildops-blue")
-                            }
+                            className={`flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                              locationPrivate
+                                ? "border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                                : "border-white/10 bg-white/5 text-buildops-text-secondary hover:bg-white/10"
+                            }`}
                           >
                             {locationPrivate ? (
                               <Lock className="w-3 h-3" />
@@ -1304,12 +1303,11 @@ export function Settings() {
                         <button
                           type="button"
                           onClick={() => setGenderPrivate(!genderPrivate)}
-                          className={
-                            "flex items-center gap-1 text-[11px] font-bold transition-all px-2.5 py-0.5 rounded-full border " +
-                            (genderPrivate
-                              ? "bg-[#1E1215] border-rose-950/40 text-rose-450"
-                              : "bg-[#0E1525] border-blue-955/40 text-buildops-blue")
-                          }
+                          className={`flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                            genderPrivate
+                              ? "border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                              : "border-white/10 bg-white/5 text-buildops-text-secondary hover:bg-white/10"
+                          }`}
                         >
                           {genderPrivate ? (
                             <Lock className="w-3 h-3" />
