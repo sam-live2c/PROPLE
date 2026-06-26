@@ -22,6 +22,7 @@ import { generateSearchData } from "@/src/lib/search";
 import { renderTextWithMentions } from "@/src/lib/renderUtils";
 import { FollowButton } from "./FollowButton";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { CodeEditor } from "./CodeEditor";
 
 export function ProblemCard({ post: initialPost, showTrashActions = false, onRestore, onDeletePermanently }: ProblemCardProps) {
   const { settings } = useSettings();
@@ -43,16 +44,7 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
 
   const [isLiking, setIsLiking] = useState(false);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.ceil(textareaRef.current.scrollHeight * 1.1)}px`;
-    }
-  }, [isEditing, editBody]);
-
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -570,6 +562,75 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
                          <Info className="w-4 h-4 text-buildops-text-secondary" />
                          About Post
                        </button>
+                       {userProfile?.role === "admin" && (
+                         <>
+                           <div className="border-t border-[rgba(255,255,255,0.05)] my-1" />
+                           <div className="px-4 py-1.5 text-[10px] uppercase font-bold text-buildops-text-secondary tracking-wider">
+                             Admin Moderation
+                           </div>
+                           {post.status === "suspended" ? (
+                             <button
+                               onClick={async (e) => {
+                                 e.stopPropagation(); e.preventDefault();
+                                 setIsMenuOpen(false);
+                                 try {
+                                   await setDoc(doc(db, "posts", post.id), { status: "open", updatedAt: serverTimestamp() }, { merge: true });
+                                   // Send notification
+                                   const notifRef = doc(collection(db, "notifications"));
+                                   await setDoc(notifRef, {
+                                     userId: post.authorId,
+                                     type: "moderation",
+                                     fromUserId: "system",
+                                     postId: post.id,
+                                     msg: `Your post "${post.title}" has been reviewed and restored to the public feed by moderation.`,
+                                     message: `Your post "${post.title}" has been reviewed and restored to the public feed by moderation.`,
+                                     read: false,
+                                     createdAt: serverTimestamp()
+                                   });
+                                   toast.success("Post resurrected and author notified!");
+                                 } catch (err) {
+                                   console.error(err);
+                                   toast.error("Failed to resurrect post");
+                                 }
+                               }}
+                               className="w-full text-left px-4 py-2.5 text-sm text-green-400 hover:bg-green-500/10 transition-colors flex items-center gap-2.5 cursor-pointer border-0 bg-transparent font-medium"
+                             >
+                               <RotateCcw className="w-4 h-4 text-green-400" />
+                               Resurrect Post
+                             </button>
+                           ) : (
+                             <button
+                               onClick={async (e) => {
+                                 e.stopPropagation(); e.preventDefault();
+                                 setIsMenuOpen(false);
+                                 try {
+                                   await setDoc(doc(db, "posts", post.id), { status: "suspended", updatedAt: serverTimestamp() }, { merge: true });
+                                   // Send notification
+                                   const notifRef = doc(collection(db, "notifications"));
+                                   await setDoc(notifRef, {
+                                     userId: post.authorId,
+                                     type: "moderation",
+                                     fromUserId: "system",
+                                     postId: post.id,
+                                     msg: `Your post "${post.title}" has been suspended by administration for violating community safety guidelines.`,
+                                     message: `Your post "${post.title}" has been suspended by administration for violating community safety guidelines.`,
+                                     read: false,
+                                     createdAt: serverTimestamp()
+                                   });
+                                   toast.success("Post suspended and author notified.");
+                                 } catch (err) {
+                                   console.error(err);
+                                   toast.error("Failed to suspend post");
+                                 }
+                               }}
+                               className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2.5 cursor-pointer border-0 bg-transparent font-medium"
+                             >
+                               <AlertTriangle className="w-4 h-4 text-red-400" />
+                               Suspend Post
+                              </button>
+                            )}
+                          </>
+                        )}
                      </>
                    )}
                 </div>
@@ -594,16 +655,11 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
                   className="w-full bg-buildops-bg border border-buildops-border rounded-lg px-3 py-2 text-sm text-buildops-text focus:outline-none focus:border-buildops-blue"
                   placeholder="Post title"
                />
-               <textarea
-                  ref={textareaRef}
+               <CodeEditor 
                   value={editBody}
-                  onChange={(e) => {
-                    setEditBody(e.target.value);
-                    e.target.style.height = "auto";
-                    e.target.style.height = `${Math.ceil(e.target.scrollHeight * 1.1)}px`;
-                  }}
-                  className="w-full bg-buildops-bg border border-buildops-border rounded-lg px-3 py-2 text-sm text-buildops-text focus:outline-none focus:border-buildops-blue resize-none min-h-[88px]"
+                  onChange={setEditBody}
                   placeholder="Post details"
+                  height="140px"
                />
                <div className="flex justify-end gap-2">
                  <button 

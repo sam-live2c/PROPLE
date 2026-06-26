@@ -31,6 +31,8 @@ service cloud.firestore {
         && data.trustScore is number
         && data.onboardingCompleted is bool
         && data.interests is list && data.interests.size() <= 20
+        && (!data.keys().hasAny(['isBanned']) || data.isBanned is bool)
+        && (!data.keys().hasAny(['status']) || data.status is string)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
       }
@@ -44,6 +46,8 @@ service cloud.firestore {
         && isValidUser(incoming())
         && incoming().uid == request.auth.uid
         && incoming().role == 'user'
+        && (!incoming().keys().hasAny(['isBanned']) || incoming().isBanned == false)
+        && (!incoming().keys().hasAny(['status']) || incoming().status == 'active')
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
         
@@ -57,10 +61,20 @@ service cloud.firestore {
            && incoming().uid == existing().uid
            && incoming().email == existing().email
            && incoming().role == existing().role
+           && (!incoming().keys().hasAny(['isBanned']) || incoming().isBanned == false || (existing().keys().hasAny(['isBanned']) && incoming().isBanned == existing().isBanned))
+           && (!incoming().keys().hasAny(['status']) || incoming().status == 'active' || (existing().keys().hasAny(['status']) && incoming().status == existing().status))
            && incoming().createdAt == existing().createdAt)
            ||
            // Anyone can increment stats
            (incoming().diff(existing()).affectedKeys().hasOnly(['stats', 'updatedAt'])
+           && incoming().updatedAt == request.time)
+           ||
+           // Admin managing user role, status, or banning
+           (isAdmin()
+           && isValidUser(incoming())
+           && incoming().uid == existing().uid
+           && incoming().email == existing().email
+           && incoming().createdAt == existing().createdAt
            && incoming().updatedAt == request.time)
         );
     }
@@ -92,7 +106,7 @@ service cloud.firestore {
         && isValidPost(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
-        && (!incoming().keys().hasAny(['status']) || incoming().status in ['open', 'solved', 'expired', 'trashed']);
+        && (!incoming().keys().hasAny(['status']) || incoming().status in ['open', 'solved', 'expired', 'trashed', 'suspended']);
 
         
       allow update: if isSignedIn()
@@ -107,6 +121,9 @@ service cloud.firestore {
             ||
             // Any signed in user can increment stats (this allows likes/comments updates)
             (incoming().diff(existing()).affectedKeys().hasAny(['stats', 'ranking', 'updatedAt', 'search']))
+            ||
+            // Admin suspending or resurrecting a post
+            (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'updatedAt', 'search']))
         );
 
       allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
@@ -165,16 +182,43 @@ service cloud.firestore {
           && incoming().createdAt == request.time
           && exists(/databases/$(database)/documents/posts/$(incoming().postId));
         allow update: if isSignedIn() 
-          && (existing().authorId == request.auth.uid || get(/databases/$(database)/documents/posts/$(existing().postId)).data.authorId == request.auth.uid);
+          && (
+             // Comment author updating their comment
+             (existing().authorId == request.auth.uid
+             && incoming().authorId == existing().authorId
+             && incoming().postId == existing().postId
+             && incoming().createdAt == existing().createdAt)
+             ||
+             // Post author marking/unmarking solution
+             (get(/databases/$(database)/documents/posts/$(existing().postId)).data.authorId == request.auth.uid
+             && incoming().authorId == existing().authorId
+             && incoming().postId == existing().postId
+             && incoming().createdAt == existing().createdAt)
+             ||
+             // Any signed-in user incrementing reportsCount when submitting a report
+             (incoming().diff(existing()).affectedKeys().hasOnly(['reportsCount'])
+             && incoming().reportsCount == existing().reportsCount + 1
+             && incoming().authorId == existing().authorId
+             && incoming().postId == existing().postId
+             && incoming().createdAt == existing().createdAt)
+             ||
+             // Any signed-in user reporting to automatically remove the solution marker
+             (incoming().diff(existing()).affectedKeys().hasOnly(['reportsCount', 'isSolution', 'updatedAt'])
+             && incoming().reportsCount == existing().reportsCount + 1
+             && incoming().isSolution == false
+             && incoming().authorId == existing().authorId
+             && incoming().postId == existing().postId
+             && incoming().createdAt == existing().createdAt)
+          );
         allow delete: if isSignedIn() 
-          && (existing().authorId == request.auth.uid || get(/databases/$(database)/documents/posts/$(existing().postId)).data.authorId == request.auth.uid);
+          && (existing().authorId == request.auth.uid || isAdmin());
     }
 
     match /notifications/{notificationId} {
         function isValidNotification(data) {
             return data.keys().hasAll(['userId', 'type', 'fromUserId', 'read', 'createdAt'])
             && data.userId is string && data.userId.size() > 0
-            && data.type in ['like', 'comment', 'follow', 'mention', 'reply']
+            && data.type in ['like', 'comment', 'follow', 'mention', 'reply', 'moderation']
             && data.fromUserId is string && data.fromUserId.size() > 0
             && (data.keys().hasAny(['postId']) == false || (data.postId is string && data.postId.size() > 0))
             && (data.keys().hasAny(['msg']) == false || (data.msg is string))

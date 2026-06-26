@@ -279,6 +279,10 @@ export function Profile() {
 
   const handleFollow = async () => {
     if (!user || !profileUser) return;
+    if (user.isAnonymous) {
+      toast.error("Guest users cannot follow other users.");
+      return;
+    }
     const targetId = profileUser.id || profileUser.uid;
     const followId = `${user.uid}_${targetId}`;
     const followRef = doc(db, "followers", followId);

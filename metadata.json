@@ -1,6 +1,6 @@
 {
-  "name": "PROPLE",
-  "description": "A comfortable social media platform for sharing thoughts, updates, and project showcases in a cozy community on PROPLE.",
+  "name": "Prople",
+  "description": "A comfortable social media platform for sharing thoughts, updates, and project showcases in a cozy community on Prople.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

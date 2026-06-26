@@ -1,4 +1,4 @@
-import { Brain, Hammer, MessagesSquare, MessageSquare, Play, ThumbsUp, ThumbsDown, ArrowUp, Zap, X, Image as ImageIcon, CheckCircle2, MoreVertical, AlertTriangle, Info, Share as Share2, UserPlus, Edit2, Trash2, ChevronDown, Bookmark, Sparkles, User, Undo2, ArrowLeft, ListFilter, Upload, Eye, BarChart2, Search, Github, Globe } from "lucide-react";
+import { Brain, Hammer, MessagesSquare, MessageSquare, Play, ThumbsUp, ThumbsDown, ArrowUp, Zap, X, Image as ImageIcon, CheckCircle2, MoreVertical, AlertTriangle, Info, Share as Share2, UserPlus, Edit2, Trash2, ChevronDown, ChevronRight, Bookmark, Sparkles, User, Undo2, ArrowLeft, ListFilter, Upload, Eye, BarChart2, Search, Github, Globe } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { collection, doc, getDoc, updateDoc, writeBatch, onSnapshot, query, where, setDoc, deleteDoc, increment, serverTimestamp, getDocs } from "firebase/firestore";
@@ -104,9 +104,10 @@ export function ProblemDetail() {
   const [editCommentBody, setEditCommentBody] = useState("");
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [longPressedCommentId, setLongPressedCommentId] = useState<string | null>(null);
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
+  const [showReportPostModal, setShowReportPostModal] = useState(false);
   const [visibleTopCommentsCount, setVisibleTopCommentsCount] = useState(5);
-  const [visibleWordsLimit, setVisibleWordsLimit] = useState(50);
-  const [expansionCount, setExpansionCount] = useState(0);
+  const [visiblePartsCount, setVisiblePartsCount] = useState(1);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -324,6 +325,15 @@ export function ProblemDetail() {
   }, [post, comments, commentsLoaded, user]);
 
   const handleDeleteComment = async (commentId: string) => {
+     const commentToDelete = comments.find(c => c.id === commentId);
+     const isAdminUser = userProfile?.role === 'admin';
+     const isCommentAuthor = user?.uid === commentToDelete?.authorId;
+
+     if (!commentToDelete || !(isCommentAuthor || isAdminUser)) {
+        toast.error("You do not have permission to delete this comment.");
+        return;
+     }
+
      try {
         const batch = writeBatch(db);
         const idsToDelete = new Set<string>();
@@ -538,7 +548,9 @@ export function ProblemDetail() {
   }, [id, user]);
 
   const handleCommentPressStart = (commentId: string, authorId: string) => {
-    if (user?.uid === authorId || user?.uid === post?.authorId) {
+    const isAdminUser = userProfile?.role === 'admin';
+    const isCommentAuthor = user?.uid === authorId;
+    if (isCommentAuthor || isAdminUser) {
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       holdTimerRef.current = setTimeout(() => {
          setLongPressedCommentId(commentId);
@@ -758,12 +770,9 @@ export function ProblemDetail() {
     }
   };
 
-  const handleReportComment = async (commentId: string) => {
+  const handleReportCommentSubmit = async (commentId: string, reason: string) => {
     if (!user || user.isAnonymous) { toast.error("Guest users cannot report comments."); return; }
     try {
-      const reason = prompt("Please provide a reason for reporting:");
-      if (!reason) return;
-
       const reportRefParam = doc(collection(db, "reports"));
       const commentRef = doc(db, "comments", commentId);
       const batch = writeBatch(db);
@@ -1058,9 +1067,14 @@ export function ProblemDetail() {
        toast.error("Guest users cannot report posts.");
        return;
     }
-    const reason = prompt("Please provide a reason for reporting (contextual comments):");
-    if (!reason || !reason.trim()) return;
-    const suggestions = prompt("Any suggestions for our team to handle this?") || "";
+    setShowReportPostModal(true);
+  };
+
+  const handleReportPostSubmit = async (reason: string, suggestions: string = "") => {
+    if (!id || !user || user.isAnonymous) {
+       toast.error("Guest users cannot report posts.");
+       return;
+    }
     
     try {
       const reportRef = doc(collection(db, "reports"));
@@ -1330,7 +1344,18 @@ export function ProblemDetail() {
                </div>
              </div>
           ) : (post.body && post.body.trim() ? (() => {
-            const { excerpt, isTruncated } = getWordsExcerpt(post.body, visibleWordsLimit);
+            const words = post.body.trim().split(/\s+/).filter(Boolean);
+            const totalWords = words.length;
+            let limit = totalWords;
+            let isTruncated = false;
+            if (totalWords > 50) {
+              const numParts = (totalWords / 3 >= 50) ? 3 : 2;
+              if (visiblePartsCount < numParts) {
+                limit = Math.floor((visiblePartsCount * totalWords) / numParts);
+                isTruncated = true;
+              }
+            }
+            const { excerpt } = getWordsExcerpt(post.body, limit);
             return (
               <div className="mb-1">
                 <div className="text-[17px] text-buildops-text/95 leading-snug font-sans whitespace-pre-wrap break-words">
@@ -1339,14 +1364,7 @@ export function ProblemDetail() {
                 {isTruncated && (
                   <button 
                     onClick={() => {
-                      let increment = 10;
-                      if (expansionCount === 1) {
-                        increment = 20;
-                      } else if (expansionCount >= 2) {
-                        increment = 30;
-                      }
-                      setVisibleWordsLimit(prev => prev + increment);
-                      setExpansionCount(prev => prev + 1);
+                      setVisiblePartsCount(prev => prev + 1);
                     }} 
                     className="text-buildops-blue text-sm font-medium hover:underline mt-2 cursor-pointer border-0 bg-transparent p-0 block"
                   >
@@ -1855,7 +1873,7 @@ export function ProblemDetail() {
                                                     e.stopPropagation();
                                                     e.preventDefault();
                                                     setActiveCommentMenuId(null);
-                                                    handleReportComment(comment.id);
+                                                    setReportingCommentId(comment.id);
                                                   }}
                                                   className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2.5 cursor-pointer border-0 bg-transparent font-medium"
                                                 >
@@ -2290,37 +2308,156 @@ export function ProblemDetail() {
         </div>
       </aside>
 
-      {longPressedCommentId && (
+      {longPressedCommentId && (() => {
+        const commentToDelete = comments.find(c => c.id === longPressedCommentId);
+        const isAdminUser = userProfile?.role === 'admin';
+        const isCommentAuthor = commentToDelete && user?.uid === commentToDelete.authorId;
+        const isAuthorized = commentToDelete && (isCommentAuthor || isAdminUser);
+        if (!isAuthorized) return null;
+
+        return (
+          <div 
+            className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={() => setLongPressedCommentId(null)}
+          >
+            <div 
+              className="bg-buildops-card border border-buildops-border rounded-xl w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-150 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-buildops-text mb-1">Delete comment?</h3>
+              <p className="text-sm text-buildops-text-secondary mb-6">
+                This action is permanent and cannot be undone.
+              </p>
+              
+              <div className="flex gap-3 justify-end">
+                <button 
+                  onClick={() => setLongPressedCommentId(null)}
+                  className="px-4 py-2 text-sm font-medium text-buildops-text-secondary hover:text-white transition-colors cursor-pointer border-0 bg-transparent"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    const idToDelete = longPressedCommentId;
+                    setLongPressedCommentId(null);
+                    handleDeleteComment(idToDelete);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors cursor-pointer border-0"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {reportingCommentId && (
         <div 
-          className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150"
-          onClick={() => setLongPressedCommentId(null)}
+          className="fixed inset-0 z-[202] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setReportingCommentId(null)}
         >
           <div 
-            className="bg-buildops-card border border-buildops-border rounded-xl w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-150 shadow-xl"
+            className="bg-buildops-card border border-buildops-border rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150 shadow-2xl animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-buildops-text mb-1">Delete comment?</h3>
-            <p className="text-sm text-buildops-text-secondary mb-6">
-              This action is permanent and cannot be undone.
-            </p>
+            <div className="p-6 border-b border-buildops-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <h3 className="text-lg font-bold text-buildops-text">Report Comment</h3>
+              </div>
+              <button 
+                onClick={() => setReportingCommentId(null)}
+                className="text-buildops-text-secondary hover:text-white border-0 bg-transparent cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             
-            <div className="flex gap-3 justify-end">
+            <div className="p-6">
+              <p className="text-sm text-buildops-text-secondary mb-4">
+                Why are you reporting this comment? Your report is anonymous.
+              </p>
+              
+              <div className="space-y-1 max-h-[30vh] overflow-y-auto no-scrollbar">
+                {[
+                  "It's spam",
+                  "Harassment or bullying",
+                  "Hate speech or symbols",
+                  "Nudity or sexual activity",
+                  "Violence or physical harm",
+                  "Intellectual property violation",
+                  "I just don't like it"
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    onClick={() => {
+                      const commId = reportingCommentId;
+                      setReportingCommentId(null);
+                      handleReportCommentSubmit(commId, reason);
+                    }}
+                    className="w-full text-left py-3 px-3 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group border-0 bg-transparent cursor-pointer"
+                  >
+                    <span className="text-sm text-buildops-text font-medium">{reason}</span>
+                    <ChevronRight className="w-4 h-4 text-buildops-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReportPostModal && (
+        <div 
+          className="fixed inset-0 z-[202] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowReportPostModal(false)}
+        >
+          <div 
+            className="bg-buildops-card border border-buildops-border rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150 shadow-2xl animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-buildops-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <h3 className="text-lg font-bold text-buildops-text">Report Post</h3>
+              </div>
               <button 
-                onClick={() => setLongPressedCommentId(null)}
-                className="px-4 py-2 text-sm font-medium text-buildops-text-secondary hover:text-white transition-colors cursor-pointer"
+                onClick={() => setShowReportPostModal(false)}
+                className="text-buildops-text-secondary hover:text-white border-0 bg-transparent cursor-pointer"
               >
-                Cancel
+                <X className="w-5 h-5" />
               </button>
-              <button 
-                onClick={() => {
-                  const idToDelete = longPressedCommentId;
-                  setLongPressedCommentId(null);
-                  handleDeleteComment(idToDelete);
-                }}
-                className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors cursor-pointer"
-              >
-                Delete
-              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-sm text-buildops-text-secondary mb-4">
+                Why are you reporting this post? Your report is anonymous.
+              </p>
+              
+              <div className="space-y-1 max-h-[30vh] overflow-y-auto no-scrollbar">
+                {[
+                  "It's spam or off-topic",
+                  "Intellectual property violation",
+                  "Hate speech or symbols",
+                  "Harassment or bullying",
+                  "Incorrect or misleading technical info",
+                  "Violence or safety concerns",
+                  "I just don't like it"
+                ].map((reasonCategory) => (
+                  <button
+                    key={reasonCategory}
+                    onClick={() => {
+                      setShowReportPostModal(false);
+                      handleReportPostSubmit(reasonCategory);
+                    }}
+                    className="w-full text-left py-3 px-3 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group border-0 bg-transparent cursor-pointer"
+                  >
+                    <span className="text-sm text-buildops-text font-medium">{reasonCategory}</span>
+                    <ChevronRight className="w-4 h-4 text-buildops-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

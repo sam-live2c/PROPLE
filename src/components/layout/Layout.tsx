@@ -6,7 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { motion } from "motion/react";
 
 export function Layout() {
-  const { userProfile, loading } = useAuth();
+  const { userProfile, loading, logout } = useAuth();
   const location = useLocation();
   const [viewportHeight, setViewportHeight] = useState('100dvh');
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -112,6 +112,54 @@ export function Layout() {
   }
 
   const needsOnboarding = userProfile && userProfile.onboardingCompleted === false;
+  const isBanned = userProfile && (userProfile.isBanned === true || userProfile.status === 'banned');
+
+  if (isBanned) {
+    return (
+      <div className="min-h-screen bg-[#080A0F] flex items-center justify-center p-6 text-center">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md bg-[rgba(255,255,255,0.02)] border border-red-500/20 rounded-2xl p-8 shadow-2xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-0 h-1 bg-red-500" />
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-3xl text-red-500 font-bold">!</span>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-white mb-2">Account Suspended</h2>
+          <p className="text-buildops-text-secondary text-sm mb-6 leading-relaxed">
+            Your account has been suspended for violating our Community Guidelines, Terms of Service, or safety policy standards.
+          </p>
+          
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-left mb-6 font-mono text-xs text-buildops-text-secondary">
+            <div className="flex justify-between border-b border-white/5 pb-2 mb-2">
+              <span>Email:</span>
+              <span className="text-white">{userProfile.email}</span>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2 mb-2">
+              <span>Handle:</span>
+              <span className="text-white">@{userProfile.handle}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Status:</span>
+              <span className="text-red-400 font-bold">Banned / Suspended</span>
+            </div>
+          </div>
+
+          <button
+            onClick={async () => {
+              await logout();
+              window.location.reload();
+            }}
+            className="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (needsOnboarding && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />;

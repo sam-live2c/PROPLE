@@ -74,6 +74,10 @@ export function Onboarding() {
   };
 
   const handleNextStep = async () => {
+     if (!acceptedTerms || !acceptedPrivacy) {
+        toast.error("Please agree to the Terms & Conditions and Privacy Policy to continue.");
+        return;
+     }
      const isValid = await checkUsername(handle);
      if (isValid) {
         await handleComplete();
@@ -82,6 +86,10 @@ export function Onboarding() {
 
   const handleQuickAutoComplete = async () => {
      if (!user) return;
+     if (!acceptedTerms || !acceptedPrivacy) {
+        toast.error("Please agree to the Terms & Conditions and Privacy Policy to continue.");
+        return;
+     }
      setSaving(true);
      try {
         const baseHandle = handle || suggestions[0] || `user_${user.uid.slice(0, 5)}`;
@@ -182,7 +190,7 @@ export function Onboarding() {
        } else {
          await setDoc(userRef, {
            uid: user.uid,
-           email: user.email,
+           email: user.email || '',
            handle: handle,
            displayName: user.displayName || 'Anonymous Explorer',
            photoURL: user.photoURL || null,
@@ -216,7 +224,7 @@ export function Onboarding() {
           <div className="mt-4 flex flex-col items-center gap-2">
             <button
               onClick={handleQuickAutoComplete}
-              disabled={saving || !acceptedTerms || !acceptedPrivacy}
+              disabled={saving}
               className="text-[10px] uppercase tracking-wider font-mono font-bold text-buildops-text-secondary border border-buildops-border bg-[rgba(255,255,255,0.01)] hover:border-white hover:text-white px-3.5 py-1.5 rounded-none transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? "Setting up..." : "Instant Auto-Setup (1-Click)"}
@@ -294,7 +302,7 @@ export function Onboarding() {
 
            <button 
              onClick={handleNextStep}
-             disabled={!handle || checkingUsername || saving || !acceptedTerms || !acceptedPrivacy}
+             disabled={!handle || checkingUsername || saving}
              className="w-full py-3.5 rounded-none bg-white text-black hover:bg-neutral-200 disabled:opacity-40 font-bold flex items-center justify-center gap-2 transition-colors disabled:cursor-not-allowed mt-4 uppercase tracking-wider text-xs font-mono"
            >
              {saving ? "Completing Setup..." : "Complete Setup"} <ArrowRight className="w-4 h-4" />

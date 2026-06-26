@@ -50,9 +50,11 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "@/src/lib/firebase";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, linkWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { generateSearchData } from "@/src/lib/search";
 import { TrashSettings } from "@/src/components/TrashSettings";
 import { toast } from "sonner";
@@ -61,6 +63,7 @@ import { ConfirmNavigationDialog } from "@/src/components/ConfirmNavigationDialo
 import { SavedCardSkeleton } from "@/src/components/SkeletonLoader";
 import { renderTextWithMentions } from "@/src/lib/renderUtils";
 import { ProblemCard } from "@/src/components/ProblemCard";
+import { ModerationPanel } from "@/src/components/ModerationPanel";
 
 // Custom Toggle Component
 function Toggle({ checked, onChange, label, description }: any) {
@@ -141,39 +144,52 @@ function SectionCard({ children, id }: any) {
   );
 }
 
-const navGroups = [
-  {
-    title: "Personal",
-    links: [
-      { id: "profile", label: "Profile", icon: User },
-      { id: "account", label: "Account", icon: Lock },
-    ],
-  },
-  {
-    title: "Experience",
-    links: [
-      { id: "experience", label: "Experience", icon: Paintbrush },
-      { id: "content", label: "Content & Feed", icon: Layout },
-      { id: "activity", label: "My Activity", icon: Activity },
-    ],
-  },
-  {
-    title: "Security",
-    links: [
-      { id: "notifications", label: "Notifications", icon: Bell },
-      { id: "privacy", label: "Privacy & Safety", icon: Shield },
-    ],
-  },
-  {
-    title: "Personalized",
-    links: [
-      { id: "developer", label: "Developer", icon: Code },
-      { id: "guidance", label: "User Guidance", icon: BookOpen, to: "/user-guidance" },
-      { id: "privacy-policy", label: "Privacy & Policy", icon: Shield, to: "/privacy-policy" },
-      { id: "terms", label: "Terms and conditions", icon: Scale, to: "/terms" },
-    ],
-  },
-];
+const getNavGroups = (role?: string) => {
+  const base = [
+    {
+      title: "Personal",
+      links: [
+        { id: "profile", label: "Profile", icon: User },
+        { id: "account", label: "Account", icon: Lock },
+      ],
+    },
+    {
+      title: "Experience",
+      links: [
+        { id: "experience", label: "Experience", icon: Paintbrush },
+        { id: "content", label: "Content & Feed", icon: Layout },
+        { id: "activity", label: "My Activity", icon: Activity },
+      ],
+    },
+    {
+      title: "Security",
+      links: [
+        { id: "notifications", label: "Notifications", icon: Bell },
+        { id: "privacy", label: "Privacy & Safety", icon: Shield },
+      ],
+    },
+    {
+      title: "Personalized",
+      links: [
+        { id: "developer", label: "Developer", icon: Code },
+        { id: "guidance", label: "User Guidance", icon: BookOpen, to: "/user-guidance" },
+        { id: "privacy-policy", label: "Privacy & Policy", icon: Shield, to: "/privacy-policy" },
+        { id: "terms", label: "Terms and conditions", icon: Scale, to: "/terms" },
+      ],
+    },
+  ];
+
+  if (role === "admin") {
+    base.push({
+      title: "Administration",
+      links: [
+        { id: "moderation", label: "Moderation Panel", icon: Shield },
+      ],
+    });
+  }
+
+  return base;
+};
 
 const compressImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -221,9 +237,11 @@ export function Settings() {
   const { tab } = useParams();
   const locationPath = useLocation();
   const activeTab = tab || "control-center";
-  const { user, logout } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const navigate = useNavigate();
   const [dbUser, setDbUser] = useState<any>(null);
+
+  const currentNavGroups = getNavGroups(userProfile?.role);
 
   const initialDisplayName = dbUser?.displayName || user?.displayName || "";
   const initialHandle =
@@ -250,6 +268,42 @@ export function Settings() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
+
+  const handleLinkGoogle = async () => {
+    if (!auth.currentUser) return;
+    setIsLinking(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await linkWithPopup(auth.currentUser, provider);
+      const linkedUser = result.user;
+      
+      const userRef = doc(db, "users", linkedUser.uid);
+      await updateDoc(userRef, {
+        email: linkedUser.email || "",
+        displayName: linkedUser.displayName || dbUser?.displayName || "Anonymous Explorer",
+        photoURL: linkedUser.photoURL || dbUser?.photoURL || null,
+        updatedAt: serverTimestamp(),
+      });
+      
+      const snap = await getDoc(userRef);
+      if (snap.exists()) setDbUser(snap.data());
+
+      toast.success("Account successfully verified and linked with Google!");
+    } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        console.log("Authentication popup closed by user.");
+      } else if (error.code === 'auth/credential-already-in-use') {
+        toast.error("This Google account is already linked to another user.");
+      } else {
+        console.error("Error linking account with Google", error);
+        toast.error("Unable to link Google account. Please try again.");
+      }
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
 
   // --- Settings Search Active Overlay Logic ---
@@ -948,7 +1002,7 @@ export function Settings() {
 
   const isMobileMenu = !tab || tab === "control-center";
 
-  const allLinks = navGroups.flatMap((g) => g.links);
+  const allLinks = currentNavGroups.flatMap((g) => g.links);
   const currentLink = allLinks.find((l) => l.id === activeTab);
   const ActiveIcon = currentLink?.icon;
 
@@ -994,7 +1048,7 @@ export function Settings() {
           </div>
 
           <div className="space-y-6">
-            {navGroups.map((group) => (
+            {currentNavGroups.map((group) => (
               <div key={group.title}>
                 <h3 className="text-[12px] uppercase tracking-widest text-[#6c7283] mb-3 px-3 font-semibold">
                   {group.title}
@@ -1931,9 +1985,26 @@ export function Settings() {
                     {user?.email || "No email linked"}
                   </div>
                 </div>
-                <span className="text-[12px] bg-buildops-green/10 text-buildops-green border border-buildops-green/20 px-2 py-1 rounded-[6px] font-medium block w-fit">
-                  Verified Google Account
-                </span>
+                {user?.isAnonymous ? (
+                  <button
+                    onClick={handleLinkGoogle}
+                    disabled={isLinking}
+                    className="px-4 py-2 bg-buildops-blue text-white hover:bg-buildops-blue/90 disabled:opacity-50 rounded-[6px] text-[13px] font-medium transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    {isLinking ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      "Verify Google Account"
+                    )}
+                  </button>
+                ) : (
+                  <span className="text-[12px] bg-buildops-green/10 text-buildops-green border border-buildops-green/20 px-2 py-1 rounded-[6px] font-medium block w-fit">
+                    Verified Google Account
+                  </span>
+                )}
               </div>
 
               <div className="py-4">
@@ -1964,6 +2035,30 @@ export function Settings() {
               </div>
             </SectionCard>
           </div>
+
+          {/* Moderation & Safety Admin Control Panel */}
+          {userProfile?.role === "admin" && (
+            <div
+              className={
+                activeTab === "moderation" || isMobileMenu
+                  ? "block"
+                  : "hidden md:block"
+              }
+            >
+              <div className="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-[18px] p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-full bg-buildops-blue/10 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-buildops-blue" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Administration Control Center</h2>
+                    <p className="text-xs text-buildops-text-secondary mt-0.5">Manage community guidelines, user safety, and policy moderation.</p>
+                  </div>
+                </div>
+                <ModerationPanel currentUserProfile={userProfile} />
+              </div>
+            </div>
+          )}
 
           {/* Developer */}
           <div

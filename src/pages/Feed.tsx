@@ -8,9 +8,11 @@ import { handleFirestoreError, OperationType } from "@/src/lib/firestore-errors"
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { sessionCache } from "@/src/lib/sessionCache";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 export function Feed() {
   const { settings } = useSettings();
+  const { user, userProfile } = useAuth();
   
   // Use session cache for active filter, and filters list
   const cachedFilter = sessionCache.get("feed_active_filter", "All");
@@ -79,7 +81,15 @@ export function Feed() {
   });
 
   const posts = useMemo(() => {
-    let allPosts: any[] = [...rawPosts].filter((p: any) => p.status !== "trashed");
+    let allPosts: any[] = [...rawPosts].filter((p: any) => {
+      if (p.status === "trashed") return false;
+      if (p.status === "suspended") {
+        const isAdmin = userProfile?.role === "admin";
+        const isAuthor = user && p.authorId === user.uid;
+        return isAdmin || isAuthor;
+      }
+      return true;
+    });
     
     // Hide all builds if developer mode is disabled
     if (!settings.developerMode) {

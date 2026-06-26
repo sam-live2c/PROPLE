@@ -54,13 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
+            const isAdminEmail = currentUser.email === 'sahanurmolla3131@gmail.com';
+
             await setDoc(userRef, {
               uid: currentUser.uid,
               email: currentUser.email || '',
               handle: uniqueHandle,
               displayName: currentUser.displayName || 'Anonymous Explorer',
               photoURL: currentUser.photoURL || null,
-              role: 'user',
+              role: isAdminEmail ? 'admin' : 'user',
               trustScore: 0,
               onboardingCompleted: false,
               interests: [],
@@ -69,6 +71,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
           } catch (e) {
             console.error("Error creating user profile", e);
+          }
+        } else {
+          // If the profile already exists, but they are sahanurmolla3131@gmail.com, update role to admin
+          const isAdminEmail = currentUser.email === 'sahanurmolla3131@gmail.com';
+          if (isAdminEmail && userSnap.data()?.role !== 'admin') {
+            try {
+              const { updateDoc } = await import('firebase/firestore');
+              await updateDoc(userRef, { role: 'admin', updatedAt: serverTimestamp() });
+            } catch (err) {
+              console.error("Error upgrading user to admin role:", err);
+            }
+          }
+        }
+
+        // Bootstrap admins collection document for Firestore rules
+        const isAdminEmail = currentUser.email === 'sahanurmolla3131@gmail.com';
+        if (isAdminEmail) {
+          try {
+            const adminRef = doc(db, 'admins', currentUser.uid);
+            const adminSnap = await getDoc(adminRef);
+            if (!adminSnap.exists()) {
+              await setDoc(adminRef, {
+                email: currentUser.email,
+                createdAt: serverTimestamp()
+              });
+            }
+          } catch (err) {
+            console.error("Error bootstrapping admins document:", err);
           }
         }
 
