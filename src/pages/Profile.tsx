@@ -566,14 +566,6 @@ export function Profile() {
                           settings?.markdownRendering ?? false
                         )}
                       </p>
-                      {isOwnProfile && (
-                        <button
-                          onClick={() => navigate("/settings/profile")}
-                          className="text-xs text-buildops-blue hover:underline cursor-pointer mt-1"
-                        >
-                          edit bio
-                        </button>
-                      )}
                     </div>
                   ) : (
                     isOwnProfile && (

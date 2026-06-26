@@ -38,6 +38,7 @@ import {
   Clock,
   Trash2,
   Scale,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useSettings } from "@/src/contexts/SettingsContext";
@@ -619,63 +620,12 @@ export function Settings() {
   };
 
   const eligibility = (() => {
-    const now = new Date();
-    const blockStart = getUsernameBlockStartDate();
-
-    if (!blockStart) {
-      return {
-        allowed: true,
-        reason: "never_changed" as const,
-        remainingText: "",
-        helperText: "Changing your username starts a 30-minute grace period.",
-      };
-    }
-
-    const thirtyMinutesMs = 30 * 60 * 1000;
-    const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
-    const elapsedMs = now.getTime() - blockStart.getTime();
-
-    if (elapsedMs < thirtyMinutesMs) {
-      const remainingMs = thirtyMinutesMs - elapsedMs;
-      const min = Math.max(0, Math.floor(remainingMs / (60 * 1000)));
-      const sec = Math.max(0, Math.floor((remainingMs % (60 * 1000)) / 1000));
-      return {
-        allowed: true,
-        reason: "grace_period" as const,
-        remainingText: `${min}m ${sec}s`,
-        helperText: `Grace period active: ${min}m ${sec}s left.`,
-      };
-    } else if (elapsedMs < thirtyMinutesMs + fifteenDaysMs) {
-      const remainingMs = (thirtyMinutesMs + fifteenDaysMs) - elapsedMs;
-      const days = Math.floor(remainingMs / (24 * 60 * 60 * 1000));
-      const hours = Math.floor(
-        (remainingMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000),
-      );
-      const minutes = Math.floor(
-        (remainingMs % (60 * 60 * 1000)) / (60 * 1000),
-      );
-
-      const parts: string[] = [];
-      if (days > 0) parts.push(`${days}d`);
-      if (hours > 0) parts.push(`${hours}h`);
-      parts.push(`${minutes}m`);
-
-      const remainingStr = parts.join(" ");
-
-      return {
-        allowed: false,
-        reason: "on_cooldown" as const,
-        remainingText: remainingStr,
-        helperText: `Cooldown active: Try again in ${remainingStr}.`,
-      };
-    } else {
-      return {
-        allowed: true,
-        reason: "cooldown_over" as const,
-        remainingText: "",
-        helperText: "Changing your username starts a 30-minute grace period.",
-      };
-    }
+    return {
+      allowed: true,
+      reason: "unlimited" as const,
+      remainingText: "",
+      helperText: "You can change your username at any time.",
+    };
   })();
 
   const [activitySubTab, setActivitySubTab] = useState<
@@ -1257,35 +1207,9 @@ export function Settings() {
                           maxLength={20}
                         />
                       </div>
-                      <div
-                        className={`mt-2 text-[12px] leading-relaxed flex items-start gap-1.5 ${!eligibility.allowed && handle.trim() !== initialHandle ? "text-rose-400" : eligibility.reason === "grace_period" ? "text-buildops-blue font-medium" : "text-buildops-text-secondary"}`}
-                      >
-                        {eligibility.allowed ? (
-                          eligibility.reason === "grace_period" ? (
-                            <>
-                              <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-buildops-blue" />
-                              <span>
-                                Within the 30-minute grace period. You can
-                                change your username as many times as you like (
-                                {eligibility.remainingText} left).
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-buildops-text-secondary" />
-                              <span>
-                                Username changes are limited to once every 15
-                                days after the 30-minute grace period has
-                                expired.
-                              </span>
-                            </>
-                          )
-                        ) : (
-                          <>
-                            <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-400" />
-                            <span>{eligibility.helperText}</span>
-                          </>
-                        )}
+                      <div className="mt-2 text-[12px] leading-relaxed flex items-start gap-1.5 text-buildops-text-secondary">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-buildops-text-secondary" />
+                        <span>Change your unique @handle. You can update this at any time.</span>
                       </div>
                     </div>
                   </div>
@@ -1299,9 +1223,10 @@ export function Settings() {
                           <button
                             type="button"
                             onClick={() => setBio("")}
-                            className="text-[11px] text-rose-400 hover:text-rose-300 font-medium cursor-pointer"
+                            className="text-rose-400 hover:text-rose-300 cursor-pointer flex items-center justify-center p-0.5 rounded-full hover:bg-rose-500/10 transition-colors"
+                            title="Clear Bio"
                           >
-                            Clear
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
