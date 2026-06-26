@@ -628,35 +628,9 @@ export function ProblemDetail() {
                createdAt: serverTimestamp()
            });
        }
-
-       // notify mentioned users
-       const textWithoutCode = replyBody.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*?`/g, '');
-       const mentionMatches = textWithoutCode.match(/@([a-zA-Z0-9_]+)/g);
-       
-       if (mentionMatches && mentionMatches.length > 0) {
-           const handles = Array.from(new Set(mentionMatches.map(m => m.substring(1).toLowerCase())));
-           for (const handle of handles.slice(0, 10)) {
-               const qStr = query(collection(db, "users"), where("handle", "==", handle));
-               const userSnap = await getDocs(qStr);
-               if (!userSnap.empty) {
-                   const mentionedUserId = userSnap.docs[0].id;
-                   if (mentionedUserId !== user.uid && mentionedUserId !== parentAuthorId) {
-                       const notifRef = doc(collection(db, "notifications"));
-                       batch.set(notifRef, {
-                           userId: mentionedUserId,
-                           type: 'mention',
-                           postId: id,
-                           message: `mentioned you in a comment`, commentId: commentRef.id,
-                           read: false,
-                           fromUserId: user.uid,
-                           createdAt: serverTimestamp()
-                       });
-                   }
-               }
-           }
-       }
        
        await batch.commit();
+       await notifyMentions(replyBody, id, user.uid, "mentioned you in a comment", commentRef.id);
        setReplyingTo(null);
        setReplyBody("");
     } catch (e) {
@@ -895,35 +869,9 @@ export function ProblemDetail() {
                createdAt: serverTimestamp()
            });
        }
-
-       // notify mentioned users
-       const textWithoutCode = solutionBody.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*?`/g, '');
-       const mentionMatches = textWithoutCode.match(/@([a-zA-Z0-9_]+)/g);
-       
-       if (mentionMatches && mentionMatches.length > 0) {
-           const handles = Array.from(new Set(mentionMatches.map(m => m.substring(1).toLowerCase())));
-           for (const handle of handles.slice(0, 10)) {
-               const qStr = query(collection(db, "users"), where("handle", "==", handle));
-               const userSnap = await getDocs(qStr);
-               if (!userSnap.empty) {
-                   const mentionedUserId = userSnap.docs[0].id;
-                   if (mentionedUserId !== user.uid && mentionedUserId !== post?.authorId) {
-                       const notifRef = doc(collection(db, "notifications"));
-                       batch.set(notifRef, {
-                           userId: mentionedUserId,
-                           type: 'mention',
-                           fromUserId: user.uid,
-                           postId: id,
-                           message: "mentioned you in a comment", commentId: commentRef.id,
-                           read: false,
-                           createdAt: serverTimestamp()
-                       });
-                   }
-               }
-           }
-       }
        
        await batch.commit();
+       await notifyMentions(solutionBody, id, user.uid, "mentioned you in a comment", commentRef.id);
        localStorage.removeItem(`solution_draft_${id}`);
        setIsDrawerOpen(false);
        setSolutionBody("");
@@ -1992,7 +1940,19 @@ export function ProblemDetail() {
                                           <ThumbsUp className={`w-3.5 h-3.5 rotate-180 ${userCommentVotes[comment.id] === -1 ? 'fill-current' : ''}`} />
                                        </button>
                                     </div>
-                                    <button onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)} className="text-xs font-semibold text-buildops-text-secondary hover:text-buildops-text transition-colors">
+                                    <button 
+                                      onClick={() => {
+                                        if (replyingTo === comment.id) {
+                                          setReplyingTo(null);
+                                          setReplyBody("");
+                                        } else {
+                                          setReplyingTo(comment.id);
+                                          const handle = author?.handle || "user";
+                                          setReplyBody(`@${handle} `);
+                                        }
+                                      }} 
+                                      className="text-xs font-semibold text-buildops-text-secondary hover:text-buildops-text transition-colors"
+                                    >
                                        Reply
                                     </button>
                                     {comment.authorId === user?.uid && (() => {
@@ -2080,6 +2040,8 @@ export function ProblemDetail() {
                                              autoFocus
                                              onFocus={(e) => {
                                                const target = e.target;
+                                               const len = target.value.length;
+                                               target.setSelectionRange(len, len);
                                                setTimeout(() => {
                                                  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                                }, 300);

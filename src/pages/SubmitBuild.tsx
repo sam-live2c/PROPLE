@@ -126,7 +126,7 @@ export function SubmitBuild() {
       // Sync to Realtime Database
       await syncPostToRtdb(postRef.id, payload);
       
-      await notifyMentions(description.trim(), postRef.id, user.uid, "mentioned you in a post");
+      await notifyMentions(`${title.trim()}\n\n${description.trim()}`, postRef.id, user.uid, "mentioned you in a post");
       
       localStorage.removeItem('submit_build_draft_full');
       navigate(`/problems/${postRef.id}`); // Keeping same detail page route

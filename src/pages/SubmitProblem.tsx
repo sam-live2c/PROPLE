@@ -127,7 +127,7 @@ export function SubmitProblem() {
       // Sync to Realtime Database
       await syncPostToRtdb(postRef.id, payload);
       
-      await notifyMentions(description.trim(), postRef.id, user.uid, "mentioned you in a post");
+      await notifyMentions(`${title.trim()}\n\n${description.trim()}`, postRef.id, user.uid, "mentioned you in a post");
       
       localStorage.removeItem('submit_problem_draft_full');
       navigate(`/problems/${postRef.id}`);
