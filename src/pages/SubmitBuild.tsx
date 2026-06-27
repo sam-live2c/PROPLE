@@ -22,8 +22,6 @@ export function SubmitBuild() {
   const [description, setDescription] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [liveUrl, setLiveUrl] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
   const [category, setCategory] = useState("none");
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
@@ -64,8 +62,6 @@ export function SubmitBuild() {
         if (parsed.description) setDescription(parsed.description);
         if (parsed.githubUrl) setGithubUrl(parsed.githubUrl);
         if (parsed.liveUrl) setLiveUrl(parsed.liveUrl);
-        if (parsed.tags) setTags(parsed.tags);
-        if (parsed.tagInput) setTagInput(parsed.tagInput);
         if (parsed.category) setCategory(parsed.category);
         if (parsed.images) setImages(parsed.images);
       }
@@ -117,7 +113,7 @@ export function SubmitBuild() {
     setCropQueue([]);
   };
 
-  const isDirty = title.trim() !== "" || description.trim() !== "" || githubUrl.trim() !== "" || liveUrl.trim() !== "" || tags.length > 0 || tagInput.trim() !== "" || images.length > 0;
+  const isDirty = title.trim() !== "" || description.trim() !== "" || githubUrl.trim() !== "" || liveUrl.trim() !== "" || images.length > 0;
   const blocker = useConfirmNavigation(isDirty && !loading);
 
   const submitPost = async () => {
@@ -129,14 +125,12 @@ export function SubmitBuild() {
     setLoading(true);
     
     try {
-      const finalTags = extractTags(description, tags, tagInput);
-      
       const postRef = doc(collection(db, "posts")); // Auto-generate ID
       
       const searchData = generateSearchData({
         title: title.trim(),
         body: description.trim(),
-        tags: finalTags,
+        tags: [],
         authorName: user.displayName || "",
         authorHandle: user.displayName ? user.displayName.toLowerCase().replace(/\s+/g, '') : ""
       });
@@ -150,7 +144,7 @@ export function SubmitBuild() {
         type: "build",
         githubUrl: githubUrl.trim() || null,
         liveUrl: liveUrl.trim() || null,
-        tags: finalTags,
+        tags: [],
         isVerifiedBuild: false, // Default false until verified
         search: searchData,
         createdAt: serverTimestamp(),
@@ -230,7 +224,7 @@ export function SubmitBuild() {
             <CodeEditor
                value={description}
                onChange={setDescription}
-               placeholder={"Describe your project, architecture, stack used, and how it works...\nMarkdown, code blocks, @mentions, and #tags are supported."}
+               placeholder={"Describe your project, architecture, stack used, and how it works...\nMarkdown, code blocks, and @mentions are supported."}
                height="150px"
             />
 
@@ -303,58 +297,6 @@ export function SubmitBuild() {
 
             {/* Metadata Inputs */}
             <div>
-              <div className="space-y-2 mb-6">
-                <label className="text-xs font-mono text-buildops-text-secondary ml-1">tags ({tags.length}/5)</label>
-                <div className="flex font-mono flex-wrap gap-2 items-center min-h-[46px] rounded bg-buildops-card border border-buildops-border p-2 focus-within:border-buildops-blue transition-colors cursor-text" onClick={(e) => {
-                  const target = e.target as HTMLElement;
-                  if (target === e.currentTarget) {
-                     const input = e.currentTarget.querySelector('input');
-                     if (input) input.focus();
-                  }
-                }}>
-                  {tags.map((tag, index) => (
-                    <span key={index} className="flex items-center gap-1 bg-buildops-bg border border-buildops-border px-2 py-1 rounded text-sm text-buildops-text">
-                      {tag}
-                      <button 
-                        type="button" 
-                        onClick={() => setTags(tags.filter((_, i) => i !== index))}
-                        className="text-buildops-text-secondary hover:text-buildops-text ml-1 focus:outline-none"
-                      >
-                        &times;
-                      </button>
-                    </span>
-                  ))}
-                  <input 
-                    type="text" 
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ',') {
-                        e.preventDefault();
-                        const newTag = tagInput.trim().toLowerCase();
-                        if (newTag) {
-                          if (tags.includes(newTag)) {
-                            setTagInput('');
-                            return;
-                          }
-                          if (tags.length >= 5) {
-                            toast.error("You can add a maximum of 5 tags.");
-                            return;
-                          }
-                          setTags([...tags, newTag]);
-                          setTagInput('');
-                        }
-                      } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-                        setTags(tags.slice(0, -1));
-                      }
-                    }}
-                    className="flex-1 min-w-[120px] bg-transparent border-none py-1 px-1 text-sm text-buildops-text focus:outline-none placeholder:text-buildops-text-secondary/40" 
-                    placeholder={tags.length === 0 ? "Type and press enter e.g. react, nodejs (max 5)" : tags.length >= 5 ? "Max tags reached" : ""} 
-                    disabled={tags.length >= 5}
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <label className="text-xs font-mono text-buildops-text ml-1 block">category (optional)</label>
                 <div className="relative">
@@ -372,7 +314,6 @@ export function SubmitBuild() {
                   <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-buildops-text-secondary pointer-events-none" />
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -429,7 +370,7 @@ export function SubmitBuild() {
         secondaryActionText="Discard"
         onPrimaryAction={() => {
            localStorage.setItem('submit_build_draft_full', JSON.stringify({
-              title, description, githubUrl, liveUrl, tags, tagInput, category, images
+              title, description, githubUrl, liveUrl, category, images
            }));
            blocker.proceed?.();
         }}

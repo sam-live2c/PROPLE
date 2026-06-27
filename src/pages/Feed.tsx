@@ -46,14 +46,10 @@ export function Feed() {
     const isBuiltInFilter = ["All", "Builds", "Recent Builds", "Newest", "Oldest", "Most Liked", "Most Viewed"].includes(activeFilter);
     
     if (activeFilter === "Builds" || activeFilter === "Recent Builds") q = query(collection(db, "posts"), where("type", "==", "build"), limit(limitCount));
-    if (activeFilter === "Newest") q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(limitCount));
-    if (activeFilter === "Oldest") q = query(collection(db, "posts"), orderBy("createdAt", "asc"), limit(limitCount));
-    if (activeFilter === "Most Liked") q = query(collection(db, "posts"), orderBy("stats.likesCount", "desc"), limit(limitCount));
-    if (activeFilter === "Most Viewed") q = query(collection(db, "posts"), orderBy("stats.viewsCount", "desc"), limit(limitCount));
-    
-    if (!isBuiltInFilter) {
-       q = query(collection(db, "posts"), where("search.tags", "array-contains", activeFilter.toLowerCase()), limit(limitCount));
-    }
+    else if (activeFilter === "Newest") q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(limitCount));
+    else if (activeFilter === "Oldest") q = query(collection(db, "posts"), orderBy("createdAt", "asc"), limit(limitCount));
+    else if (activeFilter === "Most Liked") q = query(collection(db, "posts"), orderBy("stats.likesCount", "desc"), limit(limitCount));
+    else if (activeFilter === "Most Viewed") q = query(collection(db, "posts"), orderBy("stats.viewsCount", "desc"), limit(limitCount));
 
     try {
       const snapshot = await getDocs(q);
@@ -104,7 +100,6 @@ export function Feed() {
     if (activeFilter === "Builds" || activeFilter === "Recent Builds") allPosts = allPosts.filter(p => p.type === "build");
 
     const isBuiltInFilter = ["All", "Builds", "Recent Builds", "Newest", "Oldest", "Most Liked", "Most Viewed"].includes(activeFilter);
-    if (!isBuiltInFilter) allPosts = allPosts.filter(p => (p.search?.tags || []).includes(activeFilter.toLowerCase()));
 
     if (activeFilter === "Newest" || activeFilter === "All" || activeFilter === "Recent Builds" || !isBuiltInFilter) {
       allPosts.sort((a: any, b: any) => {
@@ -178,31 +173,17 @@ export function Feed() {
   }, [rawPosts, posts, activeFilter, limitCount]);
 
   useEffect(() => {
-    // Extract dynamic tags if on "All" filter to populate the filter bar
-    if (activeFilter === "All" && rawPosts.length > 0) {
-       const extractedTags = new Set<string>();
-       rawPosts.forEach((p: any) => {
-          if (p.search && p.search.tags) {
-             p.search.tags.forEach((tag: string) => {
-                if (tag.trim()) extractedTags.add(tag.trim());
-              });
-          }
-       });
-       const topTags = Array.from(extractedTags).slice(0, 10).map(t => t.charAt(0).toUpperCase() + t.slice(1));
-       const combinedFilters = [
-          "All",
-          "Builds",
-          "Newest",
-          ...topTags,
-          "Oldest",
-          "Most Liked",
-          "Most Viewed"
-       ];
-       const finalFilters = [...new Set(combinedFilters)];
-       setFilters(finalFilters);
-       sessionCache.set('feed_filters', finalFilters);
-    }
-  }, [rawPosts, activeFilter]);
+    const defaultFilters = [
+      "All",
+      "Builds",
+      "Newest",
+      "Oldest",
+      "Most Liked",
+      "Most Viewed"
+    ];
+    setFilters(defaultFilters);
+    sessionCache.set('feed_filters', defaultFilters);
+  }, []);
 
   useEffect(() => {
       const observer = new IntersectionObserver(
@@ -258,7 +239,7 @@ export function Feed() {
           ) : posts.length === 0 ? (
              <div className="p-12 text-center text-buildops-text-secondary text-base mt-4 max-w-md mx-auto">
                <p className="font-semibold mb-2 text-white">Your Feed is quiet</p>
-               <p className="text-sm">There are no posts here yet. Follow more tags or start the conversation by writing your own post!</p>
+               <p className="text-sm">There are no posts here yet. Start the conversation by writing your own post!</p>
              </div>
           ) : (
             <>

@@ -1337,7 +1337,7 @@ export function Search() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search posts, comments, builders, tags..."
+              placeholder="Search posts, comments, and builders..."
               className="w-full rounded-xl border border-buildops-border bg-buildops-card py-3.5 pl-12 pr-4 text-base text-buildops-text placeholder:text-buildops-text-secondary focus:border-buildops-blue focus:outline-none focus:ring-1 focus:ring-buildops-blue shadow-lg"
             />
             {searchInput !== searchQuery && searchInput.trim().length > 0 && (
@@ -1707,18 +1707,6 @@ export function Search() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 text-sm text-buildops-text-secondary">
-                            Tags:{" "}
-                            {p.tags?.map((t: string, i: number) => (
-                              <span
-                                key={`${t}-${i}`}
-                                className="font-mono text-xs"
-                              >
-                                · {t}
-                              </span>
-                            ))}
-                          </div>
-
                           <div className="flex flex-wrap items-center gap-4 text-sm font-medium mt-2">
                             <span className="text-buildops-text-secondary">
                               {formatCount(p.stats?.commentsCount || 0)}{" "}
@@ -1781,18 +1769,6 @@ export function Search() {
                                 settings.markdownRendering,
                               )}
                             </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-sm text-buildops-text-secondary">
-                            Tags:{" "}
-                            {b.tags?.map((t: string, i: number) => (
-                              <span
-                                key={`${t}-${i}`}
-                                className="font-mono text-xs"
-                              >
-                                · {t}
-                              </span>
-                            ))}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-4 text-sm font-medium mt-2">
