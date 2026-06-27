@@ -1671,7 +1671,7 @@ export function ProblemDetail() {
                   e.stopPropagation();
                   setIsMenuOpen(!isMenuOpen);
                 }}
-                className="p-2 rounded-full text-buildops-text-secondary hover:text-buildops-text hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
+                className="p-2 -mr-2 rounded-full text-buildops-text-secondary hover:text-buildops-text hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
                 title="Options"
               >
                 <MoreVertical className="w-5 h-5" />
@@ -1960,8 +1960,8 @@ export function ProblemDetail() {
                   <motion.div
                     whileHover={{ scale: 1.15 }}
                     whileTap={{ scale: 0.85 }}
-                    animate={hasLiked ? { scale: 1.25, rotate: -12 } : { scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                    animate={hasLiked ? { scale: [1, 1.3, 1], rotate: [0, -15, 0] } : { scale: 1, rotate: 0 }}
+                    transition={{ duration: 0.4 }}
                     className={cn(
                       "p-2 rounded-full transition-colors",
                       hasLiked
@@ -1991,8 +1991,8 @@ export function ProblemDetail() {
                   <motion.div
                     whileHover={{ scale: 1.15 }}
                     whileTap={{ scale: 0.85 }}
-                    animate={hasDisliked ? { scale: 1.25, rotate: 12 } : { scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                    animate={hasDisliked ? { scale: [1, 1.3, 1], rotate: [0, 15, 0] } : { scale: 1, rotate: 0 }}
+                    transition={{ duration: 0.4 }}
                     className={cn(
                       "p-2 rounded-full transition-colors",
                       hasDisliked
@@ -2230,22 +2230,77 @@ export function ProblemDetail() {
                             )}
                           </Link>
                           <div className="flex-1 min-w-0">
-                            <div className="flex flex-col mb-1 animate-fade-in">
+                            <div className="flex flex-col mb-1.5 animate-fade-in">
                               <div className="flex items-start justify-between gap-1">
-                                <div className="flex flex-wrap items-baseline gap-x-2 min-w-0">
-                                  <Link
-                                    to={`/profile/${comment.authorId}`}
-                                    className="font-bold text-sm text-buildops-text hover:underline truncate max-w-[120px] sm:max-w-[200px]"
-                                  >
-                                    {author?.displayName || "Unknown User"}
-                                  </Link>
-                                  <span className="text-xs text-buildops-text-secondary">
-                                    {comment.createdAt?.toDate
-                                      ? formatPostTime(
-                                          comment.createdAt.toDate(),
-                                        )
-                                      : ""}
-                                  </span>
+                                <div className="flex flex-col min-w-0">
+                                  <div className="flex items-baseline gap-x-1.5 flex-wrap min-w-0">
+                                    <Link
+                                      to={`/profile/${comment.authorId}`}
+                                      className="font-bold text-sm text-buildops-text hover:underline truncate max-w-[120px] sm:max-w-[200px]"
+                                    >
+                                      {author?.displayName || "Unknown User"}
+                                    </Link>
+                                    <span className="text-xs text-buildops-text-secondary font-normal shrink-0">
+                                      {comment.createdAt?.toDate
+                                        ? formatPostTime(
+                                            comment.createdAt.toDate(),
+                                          )
+                                        : ""}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap items-baseline gap-x-1.5 mt-0.5">
+                                    <Link
+                                      to={`/profile/${comment.authorId}`}
+                                      className="text-xs text-buildops-text-secondary hover:underline truncate max-w-[100px]"
+                                    >
+                                      @{author?.handle || "user"}
+                                    </Link>
+                                    {comment.isEdited && (
+                                      <span className="text-xs text-buildops-text-secondary ml-1 shrink-0">
+                                        {(() => {
+                                          let editDateObj: Date | null = null;
+                                          if (comment.updatedAt) {
+                                            if (
+                                              typeof comment.updatedAt === "string"
+                                            ) {
+                                              editDateObj = new Date(
+                                                comment.updatedAt,
+                                              );
+                                            } else if (comment.updatedAt.toDate) {
+                                              editDateObj =
+                                                comment.updatedAt.toDate();
+                                            } else if (
+                                              comment.updatedAt instanceof Date
+                                            ) {
+                                              editDateObj = comment.updatedAt;
+                                            }
+                                          }
+                                          if (!editDateObj) {
+                                            editDateObj = new Date();
+                                          }
+                                          const commentEditedStr = format(
+                                            editDateObj,
+                                            "MMM d, yyyy h:mm a",
+                                          );
+                                          return `(edited ${commentEditedStr})`;
+                                        })()}
+                                      </span>
+                                    )}
+                                    {depth > 0 && parentAuthor && parentComment && (
+                                      <span className="text-xs text-buildops-text-secondary flex items-center ml-1 shrink-0">
+                                        <span className="mx-1">•</span>
+                                        Replying to{" "}
+                                        <Link
+                                          to={`/profile/${parentComment.authorId}`}
+                                          className="ml-1 text-buildops-blue hover:underline"
+                                        >
+                                          @
+                                          {parentAuthor.handle ||
+                                            parentAuthor.displayName}
+                                        </Link>
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
                                 <div className="relative shrink-0 select-none">
@@ -2259,7 +2314,7 @@ export function ProblemDetail() {
                                           : comment.id,
                                       );
                                     }}
-                                    className="p-2 rounded-full text-buildops-text-secondary hover:text-buildops-text hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer border-0 bg-transparent"
+                                    className="p-1.5 -mr-1.5 rounded-full text-buildops-text-secondary hover:text-buildops-text hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer border-0 bg-transparent"
                                     title="Options"
                                   >
                                     <MoreVertical className="w-5 h-5" />
@@ -2325,60 +2380,6 @@ export function ProblemDetail() {
                                     </>
                                   )}
                                 </div>
-                              </div>
-                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                <Link
-                                  to={`/profile/${comment.authorId}`}
-                                  className="text-xs text-buildops-text-secondary hover:underline truncate max-w-[100px]"
-                                >
-                                  @{author?.handle || "user"}
-                                </Link>
-                                {comment.isEdited && (
-                                  <span className="text-xs text-buildops-text-secondary ml-1">
-                                    {(() => {
-                                      let editDateObj: Date | null = null;
-                                      if (comment.updatedAt) {
-                                        if (
-                                          typeof comment.updatedAt === "string"
-                                        ) {
-                                          editDateObj = new Date(
-                                            comment.updatedAt,
-                                          );
-                                        } else if (comment.updatedAt.toDate) {
-                                          editDateObj =
-                                            comment.updatedAt.toDate();
-                                        } else if (
-                                          comment.updatedAt instanceof Date
-                                        ) {
-                                          editDateObj = comment.updatedAt;
-                                        }
-                                      }
-                                      if (!editDateObj) {
-                                        editDateObj = new Date();
-                                      }
-                                      const commentEditedStr = format(
-                                        editDateObj,
-                                        "MMM d, yyyy h:mm a",
-                                      );
-                                      return `(edited ${commentEditedStr})`;
-                                    })()}
-                                  </span>
-                                )}
-                                {depth > 0 && parentAuthor && parentComment && (
-                                  <span className="text-xs text-buildops-text-secondary flex items-center ml-1">
-                                    <span className="mx-1">•</span>
-                                    Replying to{" "}
-                                    <Link
-                                      to={`/profile/${parentComment.authorId}`}
-                                      className="ml-1 text-buildops-blue hover:underline"
-                                    >
-                                      @
-                                      {parentAuthor.handle ||
-                                        parentAuthor.displayName}
-                                    </Link>
-                                  </span>
-                                )}
-                                {null}
                               </div>
                             </div>
                             {editingCommentId === comment.id ? (

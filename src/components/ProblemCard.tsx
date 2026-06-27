@@ -657,7 +657,7 @@ export function ProblemCard({
         onClose={() => setModalOpen("none")}
       />
       <div
-        className="flex flex-col sm:flex-row gap-3 py-4 px-3 sm:px-4 md:px-5 lg:px-6 border-b border-buildops-border hover:bg-buildops-card/50 transition-colors cursor-pointer"
+        className="flex flex-col sm:flex-row gap-2 py-4 px-3 sm:px-4 md:px-5 lg:px-6 border-b border-buildops-border hover:bg-buildops-card/50 transition-colors cursor-pointer"
         onClick={handleCardClick}
       >
         {/* Avatar */}
@@ -681,8 +681,8 @@ export function ProblemCard({
 
         <div className="flex-1 min-w-0">
           {/* Header Information */}
-          <div className="flex items-start justify-between mb-1 text-sm">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-start justify-between mb-0.5 text-sm">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <div
                 className="w-8 h-8 rounded-full bg-buildops-border overflow-hidden flex items-center justify-center shrink-0 sm:hidden cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={(e) => {
@@ -737,7 +737,7 @@ export function ProblemCard({
                   e.preventDefault();
                   setIsMenuOpen(!isMenuOpen);
                 }}
-                className="p-2 text-buildops-text-secondary hover:text-white hover:bg-white/10 rounded-full transition-colors flex items-center justify-center cursor-pointer"
+                className="p-2 -mr-2 text-buildops-text-secondary hover:text-white hover:bg-white/10 rounded-full transition-colors flex items-center justify-center cursor-pointer"
                 title="Options"
               >
                 <MoreVertical className="w-5 h-5" />
@@ -1234,8 +1234,8 @@ export function ProblemCard({
                 <motion.div
                   whileHover={{ scale: 1.15 }}
                   whileTap={{ scale: 0.85 }}
-                  animate={hasLiked ? { scale: 1.25, rotate: -12 } : { scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                  animate={hasLiked ? { scale: [1, 1.3, 1], rotate: [0, -15, 0] } : { scale: 1, rotate: 0 }}
+                  transition={{ duration: 0.4 }}
                   className={cn(
                     "p-2 rounded-full transition-colors",
                     hasLiked
