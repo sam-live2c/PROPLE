@@ -109,6 +109,8 @@ export function ProblemDetail() {
   const [showReportPostModal, setShowReportPostModal] = useState(false);
   const [visibleTopCommentsCount, setVisibleTopCommentsCount] = useState(5);
   const [visiblePartsCount, setVisiblePartsCount] = useState(1);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [showFullDescriptionView, setShowFullDescriptionView] = useState(false);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -1111,11 +1113,247 @@ export function ProblemDetail() {
       editedTimeStr = format(editDateObj, "MMM d, yyyy h:mm a");
   }
 
+  const hasImages = !!(post?.images && post.images.length > 0);
+
+  const handleLikeClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user || user.isAnonymous) {
+      toast.error("Guest users cannot like posts.");
+      return;
+    }
+    
+    if (isLiking || isDisliking) return;
+    setIsLiking(true);
+
+    const newHasLiked = !hasLiked;
+    const shouldRemoveDislike = newHasLiked && hasDisliked;
+
+    setHasLiked(newHasLiked);
+    if (shouldRemoveDislike) setHasDisliked(false);
+
+    setPost((prev: any) => ({
+        ...prev,
+        stats: {
+            ...prev.stats,
+            likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (newHasLiked ? 1 : -1)),
+            dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (shouldRemoveDislike ? -1 : 0))
+        }
+    }));
+    
+    try {
+      const dislikeId = `${id}_${user.uid}`;
+      const likeId = `${id}_${user.uid}`;
+      const postRef = doc(db, "posts", id!);
+      const likeRef = doc(db, "likes", likeId);
+      const dislikeRef = doc(db, "dislikes", dislikeId);
+      
+      const batch = writeBatch(db);
+      
+      if (newHasLiked) {
+        batch.set(likeRef, {
+          postId: id,
+          userId: user.uid,
+          createdAt: serverTimestamp()
+        });
+        batch.update(postRef, {
+          "stats.likesCount": increment(1),
+          updatedAt: serverTimestamp()
+        });
+
+        if (shouldRemoveDislike) {
+          batch.delete(dislikeRef);
+          batch.update(postRef, {
+            "stats.dislikesCount": increment(-1),
+            updatedAt: serverTimestamp()
+          });
+        }
+        
+        if (post && post.authorId && post.authorId !== user.uid) {
+          const notifRef = doc(collection(db, "notifications"));
+          batch.set(notifRef, {
+            userId: post.authorId,
+            fromUserId: user.uid,
+            postId: id,
+            type: 'like',
+            read: false,
+            createdAt: serverTimestamp()
+          });
+        }
+      } else {
+        batch.delete(likeRef);
+        batch.update(postRef, {
+           "stats.likesCount": increment(-1),
+           updatedAt: serverTimestamp()
+        });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.error(err);
+      setHasLiked(!newHasLiked); // Revert on failure
+      if (shouldRemoveDislike) setHasDisliked(true);
+      setPost((prev: any) => ({
+          ...prev,
+          stats: {
+              ...prev.stats,
+              likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (newHasLiked ? -1 : 1)),
+              dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (shouldRemoveDislike ? 1 : 0))
+          }
+      }));
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleDislikeClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user || user.isAnonymous) {
+      toast.error("Guest users cannot dislike posts.");
+      return;
+    }
+    
+    if (isLiking || isDisliking) return;
+    setIsDisliking(true);
+
+    const newHasDisliked = !hasDisliked;
+    const shouldRemoveLike = newHasDisliked && hasLiked;
+
+    setHasDisliked(newHasDisliked);
+    if (shouldRemoveLike) setHasLiked(false);
+
+    setPost((prev: any) => ({
+        ...prev,
+        stats: {
+            ...prev.stats,
+            dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (newHasDisliked ? 1 : -1)),
+            likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (shouldRemoveLike ? -1 : 0))
+        }
+    }));
+    
+    try {
+      const dislikeId = `${id}_${user.uid}`;
+      const likeId = `${id}_${user.uid}`;
+      const postRef = doc(db, "posts", id!);
+      const likeRef = doc(db, "likes", likeId);
+      const dislikeRef = doc(db, "dislikes", dislikeId);
+      
+      const batch = writeBatch(db);
+      
+      if (newHasDisliked) {
+        batch.set(dislikeRef, {
+          postId: id,
+          userId: user.uid,
+          createdAt: serverTimestamp()
+        });
+        batch.update(postRef, {
+          "stats.dislikesCount": increment(1),
+          updatedAt: serverTimestamp()
+        });
+
+        if (shouldRemoveLike) {
+          batch.delete(likeRef);
+          batch.update(postRef, {
+            "stats.likesCount": increment(-1),
+            updatedAt: serverTimestamp()
+          });
+        }
+      } else {
+        batch.delete(dislikeRef);
+        batch.update(postRef, {
+           "stats.dislikesCount": increment(-1),
+           updatedAt: serverTimestamp()
+        });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.error(err);
+      setHasDisliked(!newHasDisliked); // Revert on failure
+      if (shouldRemoveLike) setHasLiked(true);
+      setPost((prev: any) => ({
+          ...prev,
+          stats: {
+              ...prev.stats,
+              dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (newHasDisliked ? -1 : 1)),
+              likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (shouldRemoveLike ? 1 : 0))
+          }
+      }));
+    } finally {
+      setIsDisliking(false);
+    }
+  };
+
+  const handleShareClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const url = window.location.href;
+      if (user) {
+        const shareRef = doc(db, "shares", `${id}_${user.uid}`);
+        setDoc(shareRef, { postId: id, userId: user.uid, createdAt: serverTimestamp() }, { merge: true }).catch(() => {});
+      }
+      if (navigator.share) {
+        await navigator.share({ title: post.title, url: url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied!");
+      }
+      
+      if (user) {
+        const postRef = doc(db, "posts", id!);
+        await updateDoc(postRef, {
+          "stats.sharesCount": increment(1),
+          updatedAt: serverTimestamp()
+        });
+        setPost((prev: any) => ({
+          ...prev,
+          stats: {
+            ...prev.stats,
+            sharesCount: (prev.stats?.sharesCount || 0) + 1
+          }
+        }));
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError' && !err.message?.includes('canceled')) {
+        console.error(err);
+      }
+    }
+  };
+
+  if (showFullDescriptionView) {
+    return (
+      <div className="flex flex-col min-h-screen bg-buildops-bg pb-16 font-sans">
+        <div className="sticky top-0 z-40 bg-buildops-bg h-14 mb-4 px-3 sm:px-4 md:px-5 lg:px-6 flex items-center gap-3">
+          <button 
+            onClick={() => setShowFullDescriptionView(false)} 
+            className="text-buildops-text-secondary hover:text-white transition-colors p-1.5 rounded-full hover:bg-white/5 cursor-pointer flex items-center justify-center border-0 bg-transparent"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-xl font-bold text-buildops-text">Description</h1>
+        </div>
+
+        <div className="px-3 sm:px-4 md:px-5 lg:px-6 max-w-4xl mx-auto w-full">
+          <div className="text-buildops-text">
+            {post && (
+              <div className="mb-4">
+                <h2 className="text-xl md:text-2xl font-bold text-buildops-text leading-tight">
+                  {post.title}
+                </h2>
+              </div>
+            )}
+            <div className="text-[17px] md:text-[18px] text-buildops-text/95 leading-relaxed whitespace-pre-wrap break-words">
+              {renderTextWithMentions(post?.body || "", settings.markdownRendering)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-8 pb-16 lg:pb-0 relative">
       {/* Main Content */}
       <div className="flex-1 w-full max-w-4xl min-w-0">
-        <div className="sticky top-0 z-40 bg-buildops-bg/95 backdrop-blur-md h-14 mb-6 px-3 sm:px-4 md:px-5 lg:px-6 border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between">
+        <div className="sticky top-0 z-40 bg-buildops-bg/95 backdrop-blur-md h-14 mb-0 px-3 sm:px-4 md:px-5 lg:px-6 border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="text-buildops-text-secondary hover:text-white transition-colors">
               <ArrowLeft className="w-5 h-5" />
@@ -1188,446 +1426,239 @@ export function ProblemDetail() {
           </div>
         </div>
         
-        <div className="px-3 sm:px-4 md:px-5 lg:px-6 space-y-8">
-        {/* Header */}
-        <div>
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Link to={`/profile/${post.authorId}`} className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-buildops-card flex items-center justify-center border border-buildops-border hover:opacity-80 transition-opacity">
-                {author?.photoURL ? (
-                  <img src={author.photoURL} alt={author?.displayName || 'User'} className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-6 h-6 text-buildops-text-secondary" />
-                )}
-              </Link>
-             <div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Link to={`/profile/${post.authorId}`} className="font-bold text-base text-buildops-text hover:underline truncate max-w-[200px] sm:max-w-[300px]">
-                      {author?.displayName || 'Unknown Builder'}
-                    </Link>
-                    {author?.role === 'verified' && <CheckCircle2 className="w-4 h-4 text-buildops-blue shrink-0 hidden sm:block" />}
-                    {post.authorId && user?.uid !== post.authorId && (
-                      <div className="ml-2">
-                         <FollowButton targetId={post.authorId} variant="text" />
-                      </div>
-                    )}
-                  </div>
-                  <Link to={`/profile/${post.authorId}`} className="text-buildops-text-secondary text-sm hover:underline truncate max-w-[200px] sm:max-w-[200px]">
-                    @{author?.handle || 'user'}
-                  </Link>
-                </div>
-              </div>
+        {/* User Profile Header Block */}
+        <div className="flex items-center justify-between px-3 sm:px-4 md:px-5 lg:px-6 pt-5 pb-2 bg-buildops-bg transition-colors">
+          <div className="flex items-center gap-4">
+            <div 
+              className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-buildops-border overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border border-buildops-border/60 shadow-sm"
+              onClick={() => {
+                if (post?.authorId) navigate(`/profile/${post.authorId}`);
+              }}
+            >
+              {author?.photoURL ? (
+                <img src={author.photoURL} alt={author.displayName || 'User'} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-6 h-6 text-buildops-text-secondary" />
+              )}
             </div>
-
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span 
+                  className="font-bold text-base md:text-lg text-buildops-text cursor-pointer hover:underline"
+                  onClick={() => {
+                    if (post?.authorId) navigate(`/profile/${post.authorId}`);
+                  }}
+                >
+                  {author?.displayName || 'Unknown'}
+                </span>
+                {author?.role === 'verified' && <CheckCircle2 className="w-4 h-4 text-buildops-blue shrink-0" />}
+              </div>
+              <Link 
+                to={post?.authorId ? `/profile/${post.authorId}` : '#'}
+                className="text-buildops-text-secondary font-medium text-xs md:text-sm hover:underline"
+              >
+                @{author?.handle || 'user'}
+              </Link>
+            </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-          </div>
-          
-          {isEditing ? (
-             <div className="space-y-4 mb-4">
-                <input 
-                  type="text" 
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full bg-buildops-card border border-buildops-border rounded-lg px-4 py-2 text-xl font-bold text-buildops-text focus:outline-none focus:border-buildops-blue"
-                  placeholder="Post Title"
-                />
-             </div>
-          ) : (
-            <>
-                {post.type === "build" && (
-                    <div className="mb-2 text-xs font-mono font-medium text-buildops-blue uppercase">
-                        # build_showcase
-                    </div>
-                )}
-                <h1 className="text-2xl md:text-3xl font-bold text-buildops-text mb-4 leading-tight">
+          {post?.authorId && user?.uid !== post.authorId && (
+            <div className="shrink-0">
+              <FollowButton targetId={post.authorId} variant="button" className="text-xs md:text-sm font-bold shadow-sm" />
+            </div>
+          )}
+        </div>
+        
+        <div>
+        <div className="pt-0 pb-6 px-3 sm:px-4 md:px-5 lg:px-6 border-b border-buildops-border bg-buildops-bg transition-colors">
+          <div className="min-w-0">
+            {/* Title / Body Content */}
+            {isEditing ? (
+              <div className="space-y-3 mb-3 shrink-0 w-full" onClick={(e) => e.stopPropagation()}>
+                 <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full bg-buildops-bg border border-buildops-border rounded-lg px-3 py-2 text-sm text-buildops-text focus:outline-none focus:border-buildops-blue"
+                    placeholder="Post title"
+                 />
+                 <CodeEditor 
+                    value={editBody}
+                    onChange={setEditBody}
+                    placeholder="Post details"
+                    height="140px"
+                 />
+                 <div className="flex justify-end gap-2">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); setIsEditing(false); }} 
+                     className="text-xs font-medium px-3 py-1.5 rounded-lg bg-buildops-card border border-buildops-border text-buildops-text-secondary hover:text-white transition-colors"
+                   >
+                     Cancel
+                   </button>
+                   <button 
+                     onClick={handleSaveEdit}
+                     disabled={isSavingEdit}
+                     className="text-xs font-medium px-3 py-1.5 rounded-lg bg-buildops-blue text-white hover:bg-buildops-blue/90 disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                   >
+                     {isSavingEdit ? 'Saving...' : 'Save'}
+                   </button>
+                 </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-base font-bold text-buildops-text mb-2 leading-snug">
                   {renderTextWithMentions(post.title, false)}
                 </h1>
-                {(post.githubUrl || post.liveUrl) && (
-                    <div className="flex gap-3 mb-4">
-                       {post.githubUrl && (
-                          <a href={post.githubUrl} target="_blank" rel="noopener noreferrer" className="flex text-sm items-center gap-2 text-buildops-text-secondary hover:text-buildops-text transition-colors border border-buildops-border rounded px-3 py-1.5 bg-buildops-card">
-                             <Github className="w-4 h-4" />
-                             Repository
-                          </a>
-                       )}
-                       {post.liveUrl && (
-                          <a href={post.liveUrl} target="_blank" rel="noopener noreferrer" className="flex text-sm items-center gap-2 text-buildops-text-secondary hover:text-buildops-text transition-colors border border-buildops-border rounded px-3 py-1.5 bg-buildops-card">
-                             <Globe className="w-4 h-4" />
-                             Live Demo
-                          </a>
-                       )}
+                
+                {/* Description Text / Body of the post */}
+                {post.body && post.body.trim() && !hasImages && (
+                  <div className="mb-3">
+                    {/* Non-Image Post -> Show Full Body text directly */}
+                    <div className="text-[16px] md:text-[17px] text-buildops-text/95 leading-relaxed font-sans whitespace-pre-wrap break-words">
+                      {renderTextWithMentions(post.body, settings.markdownRendering)}
                     </div>
+                  </div>
                 )}
-            </>
-          )}
 
-        </div>
+                {/* Image Carousel */}
+                {post.images && post.images.length > 0 && (
+                  <div className="mb-3">
+                    <ImageCarousel images={post.images} aspectRatio="auto" />
+                  </div>
+                )}
+              </>
+            )}
 
-        {post.images && post.images.length > 0 && (
-          <div className="mb-6 px-3 sm:px-4 md:px-5 lg:px-6">
-            <div className="sm:pl-[52px]">
-              <ImageCarousel images={post.images} aspectRatio="auto" />
-            </div>
-          </div>
-        )}
-
-        {/* User Description (Raw) */}
-        <section className="space-y-4">
-          {isEditing ? (
-             <div className="space-y-4">
-               <CodeEditor 
-                  value={editBody}
-                  onChange={setEditBody}
-                  placeholder="Post Body"
-                  height="165px"
-               />
-               <div className="flex gap-2">
-                  <button 
-                    onClick={handleSaveEdit}
-                    disabled={isSavingEdit}
-                    className="px-4 py-2 bg-buildops-blue text-white font-bold rounded flex-1 hover:bg-opacity-90 disabled:opacity-50"
-                  >
-                    {isSavingEdit ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button 
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 bg-buildops-bg border border-buildops-border text-buildops-text font-bold rounded flex-1 hover:bg-buildops-card"
-                  >
-                    Cancel
-                  </button>
-               </div>
-             </div>
-          ) : (post.body && post.body.trim() ? (() => {
-            const words = post.body.trim().split(/\s+/).filter(Boolean);
-            const totalWords = words.length;
-            let limit = totalWords;
-            let isTruncated = false;
-            if (totalWords > 50) {
-              const numParts = (totalWords / 3 >= 50) ? 3 : 2;
-              if (visiblePartsCount < numParts) {
-                limit = Math.floor((visiblePartsCount * totalWords) / numParts);
-                isTruncated = true;
-              }
-            }
-            const { excerpt } = getWordsExcerpt(post.body, limit);
-            return (
-              <div className="mb-1">
-                <div className="text-[17px] text-buildops-text/95 leading-snug font-sans whitespace-pre-wrap break-words">
-                  {renderTextWithMentions(excerpt, settings.markdownRendering)}
+            {/* Links */}
+            {(post.githubUrl || post.liveUrl) && (
+                <div className="flex gap-3 mb-3">
+                   {post.githubUrl && (
+                      <a href={post.githubUrl} target="_blank" rel="noopener noreferrer" className="flex text-xs items-center gap-1.5 text-buildops-text-secondary hover:text-buildops-text transition-colors border border-buildops-border rounded px-2 py-1 bg-buildops-card">
+                         <Github className="w-3.5 h-3.5" />
+                         Repository
+                      </a>
+                   )}
+                   {post.liveUrl && (
+                      <a href={post.liveUrl} target="_blank" rel="noopener noreferrer" className="flex text-xs items-center gap-1.5 text-buildops-text-secondary hover:text-buildops-text transition-colors border border-buildops-border rounded px-2 py-1 bg-buildops-card">
+                         <Globe className="w-3.5 h-3.5" />
+                         Live Demo
+                      </a>
+                   )}
                 </div>
-                {isTruncated && (
-                  <button 
-                    onClick={() => {
-                      setVisiblePartsCount(prev => prev + 1);
-                    }} 
-                    className="text-buildops-blue text-sm font-medium hover:underline mt-2 cursor-pointer border-0 bg-transparent p-0 block"
-                  >
-                    Read more
-                  </button>
-                )}
-              </div>
-            );
-          })() : null)}
-          
-          {!isEditing && (
-             <div className="text-sm text-buildops-text-secondary mt-2 mb-4" title={dateStr}>
+            )}
+
+            {/* Labels/Tags */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {post.category && (
+                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-buildops-card border border-buildops-border text-buildops-text-secondary">
+                  {post.category}
+                </span>
+              )}
+              {post.tags?.slice(0, 3).map((tag: string, i: number) => (
+                 <span 
+                   key={`${tag}-${i}`} 
+                   onClick={(e) => { e.stopPropagation(); navigate(`/search?q=${encodeURIComponent(tag)}`); }}
+                   className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-buildops-bg border border-buildops-border/50 text-buildops-text-secondary/70 hover:text-buildops-blue hover:border-buildops-blue/50 cursor-pointer transition-colors"
+                 >
+                   {tag}
+                 </span>
+              ))}
+              <span className="text-buildops-text-secondary text-[12px] sm:ml-auto w-full sm:w-auto mt-1 sm:mt-0" title={dateStr}>
                 {timeAgo === dateStr ? dateStr : `${timeAgo}`} {post.isEdited && <span className="ml-1 text-buildops-text-secondary">{editedTimeStr ? `(edited ${editedTimeStr})` : '(edited)'}</span>}
-             </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-between w-full text-buildops-text-secondary pt-4 border-t border-[rgba(255,255,255,0.1)] pb-2">
-            {/* Like Button */}
-            <button 
-              onClick={async (e) => {
-                e.stopPropagation();
-                if (!user || user.isAnonymous) {
-                  toast.error("Guest users cannot like posts.");
-                  return;
-                }
-                
-                if (isLiking || isDisliking) return;
-                setIsLiking(true);
-
-                const newHasLiked = !hasLiked;
-                const shouldRemoveDislike = newHasLiked && hasDisliked;
-
-                setHasLiked(newHasLiked);
-                if (shouldRemoveDislike) setHasDisliked(false);
-
-                setPost((prev: any) => ({
-                    ...prev,
-                    stats: {
-                        ...prev.stats,
-                        likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (newHasLiked ? 1 : -1)),
-                        dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (shouldRemoveDislike ? -1 : 0))
-                    }
-                }));
-                
-                try {
-                  const dislikeId = `${id}_${user.uid}`;
-                  const likeId = `${id}_${user.uid}`;
-                  const postRef = doc(db, "posts", id!);
-                  const likeRef = doc(db, "likes", likeId);
-                  const dislikeRef = doc(db, "dislikes", dislikeId);
-                  
-                  const batch = writeBatch(db);
-                  
-                  if (newHasLiked) {
-                    batch.set(likeRef, {
-                      postId: id,
-                      userId: user.uid,
-                      createdAt: serverTimestamp()
-                    });
-                    batch.update(postRef, {
-                      "stats.likesCount": increment(1),
-                      updatedAt: serverTimestamp()
-                    });
-
-                    if (shouldRemoveDislike) {
-                      batch.delete(dislikeRef);
-                      batch.update(postRef, {
-                        "stats.dislikesCount": increment(-1),
-                        updatedAt: serverTimestamp()
-                      });
-                    }
-                    
-                    if (post && post.authorId && post.authorId !== user.uid) {
-                      const notifRef = doc(collection(db, "notifications"));
-                      batch.set(notifRef, {
-                        userId: post.authorId,
-                        fromUserId: user.uid,
-                        postId: id,
-                        type: 'like',
-                        read: false,
-                        createdAt: serverTimestamp()
-                      });
-                    }
-                  } else {
-                    batch.delete(likeRef);
-                    batch.update(postRef, {
-                       "stats.likesCount": increment(-1),
-                       updatedAt: serverTimestamp()
-                    });
-                  }
-                  await batch.commit();
-                } catch (err) {
-                  console.error(err);
-                  setHasLiked(!newHasLiked); // Revert on failure
-                  if (shouldRemoveDislike) setHasDisliked(true);
-                  setPost((prev: any) => ({
-                      ...prev,
-                      stats: {
-                          ...prev.stats,
-                          likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (newHasLiked ? -1 : 1)),
-                          dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (shouldRemoveDislike ? 1 : 0))
-                      }
-                  }));
-                } finally {
-                  setIsLiking(false);
-                }
-              }} 
-              className={`flex items-center justify-center flex-1 gap-1.5 transition-colors group ${hasLiked ? 'text-buildops-blue' : 'hover:text-buildops-blue'}`}
-            >
-              <div className={`p-1.5 flex items-center justify-center rounded-full transition-colors ${hasLiked ? 'bg-buildops-blue/10' : 'group-hover:bg-buildops-blue/10'}`}>
-                <ThumbsUp className={`w-5 h-5 ${hasLiked ? 'fill-current' : ''}`} />
-              </div>
-              <span className="font-medium">{formatCount(post.stats?.likesCount || 0)}</span>
-            </button>
-
-            {/* Dislike Button */}
-            <button 
-              onClick={async (e) => {
-                e.stopPropagation();
-                if (!user || user.isAnonymous) {
-                  toast.error("Guest users cannot dislike posts.");
-                  return;
-                }
-                
-                if (isLiking || isDisliking) return;
-                setIsDisliking(true);
-
-                const newHasDisliked = !hasDisliked;
-                const shouldRemoveLike = newHasDisliked && hasLiked;
-
-                setHasDisliked(newHasDisliked);
-                if (shouldRemoveLike) setHasLiked(false);
-
-                setPost((prev: any) => ({
-                    ...prev,
-                    stats: {
-                        ...prev.stats,
-                        dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (newHasDisliked ? 1 : -1)),
-                        likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (shouldRemoveLike ? -1 : 0))
-                    }
-                }));
-                
-                try {
-                  const dislikeId = `${id}_${user.uid}`;
-                  const likeId = `${id}_${user.uid}`;
-                  const postRef = doc(db, "posts", id!);
-                  const likeRef = doc(db, "likes", likeId);
-                  const dislikeRef = doc(db, "dislikes", dislikeId);
-                  
-                  const batch = writeBatch(db);
-                  
-                  if (newHasDisliked) {
-                    batch.set(dislikeRef, {
-                      postId: id,
-                      userId: user.uid,
-                      createdAt: serverTimestamp()
-                    });
-                    batch.update(postRef, {
-                      "stats.dislikesCount": increment(1),
-                      updatedAt: serverTimestamp()
-                    });
-
-                    if (shouldRemoveLike) {
-                      batch.delete(likeRef);
-                      batch.update(postRef, {
-                        "stats.likesCount": increment(-1),
-                        updatedAt: serverTimestamp()
-                      });
-                    }
-                  } else {
-                    batch.delete(dislikeRef);
-                    batch.update(postRef, {
-                       "stats.dislikesCount": increment(-1),
-                       updatedAt: serverTimestamp()
-                    });
-                  }
-                  await batch.commit();
-                } catch (err) {
-                  console.error(err);
-                  setHasDisliked(!newHasDisliked); // Revert on failure
-                  if (shouldRemoveLike) setHasLiked(true);
-                  setPost((prev: any) => ({
-                      ...prev,
-                      stats: {
-                          ...prev.stats,
-                          dislikesCount: Math.max(0, (prev.stats?.dislikesCount || 0) + (newHasDisliked ? -1 : 1)),
-                          likesCount: Math.max(0, (prev.stats?.likesCount || 0) + (shouldRemoveLike ? 1 : 0))
-                      }
-                  }));
-                } finally {
-                  setIsDisliking(false);
-                }
-              }} 
-              className={`flex items-center justify-center flex-1 gap-1.5 transition-colors group ${hasDisliked ? 'text-buildops-orange' : 'hover:text-buildops-orange'}`}
-            >
-              <div className={`p-1.5 flex items-center justify-center rounded-full transition-colors ${hasDisliked ? 'bg-buildops-orange/10' : 'group-hover:bg-buildops-orange/10'}`}>
-                <ThumbsDown className={`w-5 h-5 ${hasDisliked ? 'fill-current' : ''}`} />
-              </div>
-              <span className="font-medium">{formatCount(post.stats?.dislikesCount || 0)}</span>
-            </button>
-
-            <div className="flex items-center justify-center flex-1 gap-1.5 text-buildops-text-secondary/80 pointer-events-none" title="Views">
-              <div className="p-1.5 flex items-center justify-center">
-                <BarChart2 className="w-5 h-5" />
-              </div>
-              <span className="font-medium">{formatCount(post.stats?.viewsCount || 0)}</span>
+              </span>
             </div>
 
-            <button 
-              onClick={async (e) => {
-                 e.stopPropagation();
-                 try {
-                   const url = window.location.href;
-                   if (user) {
-                     const shareRef = doc(db, "shares", `${id}_${user.uid}`);
-                     setDoc(shareRef, { postId: id, userId: user.uid, createdAt: serverTimestamp() }, { merge: true }).catch(() => {});
-                   }
-                   if (navigator.share) {
-                     await navigator.share({ title: post.title, url: url });
-                   } else {
-                     await navigator.clipboard.writeText(url);
-                     toast.success("Link copied!");
-                   }
-                   
-                   if (user) {
-                     const postRef = doc(db, "posts", id!);
-                     await updateDoc(postRef, {
-                       "stats.sharesCount": increment(1),
-                       updatedAt: serverTimestamp()
-                     });
-                     setPost((prev: any) => ({
-                       ...prev,
-                       stats: {
-                         ...prev.stats,
-                         sharesCount: (prev.stats?.sharesCount || 0) + 1
-                       }
-                     }));
-                   }
-                 } catch (err: any) {
-                   if (err.name !== 'AbortError' && !err.message?.includes('canceled')) {
-                     console.error(err);
-                   }
-                 }
-               }}
-               className="flex items-center justify-center flex-1 gap-1.5 hover:text-buildops-blue transition-colors group"
-            >
-              <div className="p-1.5 flex items-center justify-center rounded-full group-hover:bg-buildops-blue/10 transition-colors">
-                <Share2 className="w-5 h-5" />
-              </div>
-              <span className="font-medium">{formatCount(post.stats?.sharesCount || 0)}</span>
-            </button>
-
-            <button 
-              onClick={async (e) => {
-                e.stopPropagation();
-                if (!user) {
-                  toast.error("Please sign in to save posts.");
-                  return;
-                }
-                const newHasSaved = !hasSaved;
-                setHasSaved(newHasSaved);
-                setPost((prev: any) => ({
-                    ...prev,
-                    stats: {
-                        ...prev.stats,
-                        savesCount: Math.max(0, (prev.stats?.savesCount || 0) + (newHasSaved ? 1 : -1))
-                    }
-                }));
-
-                const toastId = toast.success(newHasSaved ? "Post saved!" : "Post unsaved!");
-
-                try {
-                      const saveRef = doc(db, "saves", `${id}_${user.uid}`);
-                      const postRef = doc(db, "posts", id!);
-
-                      if (newHasSaved) {
-                          await setDoc(saveRef, { postId: id, userId: user.uid, createdAt: serverTimestamp() });
-                          await updateDoc(postRef, { "stats.savesCount": increment(1) });
-                      } else {
-                          await deleteDoc(saveRef);
-                          await updateDoc(postRef, { "stats.savesCount": increment(-1) });
-                      }
-                  } catch (e) {
-                      console.error("Save failure", e);
-                      toast.dismiss(toastId);
-                      toast.error("Failed to update bookmark.");
-                      // Revert optimism
-                      setHasSaved(!newHasSaved);
-                      setPost((prev: any) => ({
-                          ...prev,
-                          stats: {
-                              ...prev.stats,
-                              savesCount: Math.max(0, (prev.stats?.savesCount || 0) + (!newHasSaved ? 1 : -1))
-                          }
-                      }));
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between text-buildops-text-secondary max-w-md mt-2 pt-2 border-t border-buildops-border/30">
+              {/* Comment Count */}
+              <button 
+                onClick={() => {
+                  const commentsSection = document.getElementById('comments-section-heading');
+                  if (commentsSection) {
+                    commentsSection.scrollIntoView({ behavior: 'smooth' });
                   }
-              }} 
-              className={`flex items-center justify-center flex-1 gap-1.5 transition-colors group ${hasSaved ? 'text-buildops-blue' : 'hover:text-buildops-blue'}`}
-            >
-              <div className={`p-1.5 flex items-center justify-center rounded-full transition-colors ${hasSaved ? 'bg-buildops-blue/10' : 'group-hover:bg-buildops-blue/10'}`}>
-                <Bookmark className={`w-5 h-5 ${hasSaved ? 'fill-current' : ''}`} />
+                }}
+                className="flex items-center gap-1.5 text-[13px] hover:text-buildops-green transition-colors group"
+              >
+                <motion.div whileTap={{ scale: 0.8 }} className="p-1.5 rounded-full group-hover:bg-buildops-green/10 transition-colors">
+                  <MessageSquare className="w-5 h-5" />
+                </motion.div>
+                <span>{formatCount(comments.length)}</span>
+              </button>
+
+              {/* Like Button */}
+              <button onClick={handleLikeClick} className={cn("flex items-center gap-1.5 text-[13px] transition-colors group", hasLiked ? "text-buildops-blue" : "hover:text-buildops-blue")}>
+                <motion.div 
+                   whileTap={{ scale: 0.8 }}
+                   animate={hasLiked ? { scale: [1, 1.2, 1] } : {}}
+                   transition={{ duration: 0.3 }}
+                   className={cn("p-1.5 rounded-full transition-colors", hasLiked ? "bg-buildops-blue/10" : "group-hover:bg-buildops-blue/10")}
+                >
+                  <ThumbsUp className={cn("w-5 h-5", hasLiked ? "fill-current" : "")} />
+                </motion.div>
+                <span className={hasLiked ? "font-medium" : ""}>{formatCount(post.stats?.likesCount || 0)}</span>
+              </button>
+
+              {/* Views Count */}
+              <button className="flex items-center gap-1.5 text-[13px] hover:text-buildops-blue transition-colors group">
+                <motion.div whileTap={{ scale: 0.8 }} className="p-1.5 rounded-full group-hover:bg-buildops-blue/10 transition-colors">
+                  <BarChart2 className="w-5 h-5" />
+                </motion.div>
+                <span>{formatCount(post.stats?.viewsCount || 0)}</span>
+              </button>
+
+              {/* Share Button */}
+              <button onClick={handleShareClick} className="flex items-center gap-1.5 text-[13px] hover:text-buildops-blue transition-colors group">
+                <motion.div 
+                   whileTap={{ scale: 0.8 }} 
+                   className="p-1.5 rounded-full group-hover:bg-buildops-blue/10 transition-colors"
+                >
+                  <Share2 className="w-5 h-5" />
+                </motion.div>
+                <span>{formatCount(post.stats?.sharesCount || 0)}</span>
+              </button>
+
+              {/* Save/Bookmark Button */}
+              <button onClick={handleToggleSave} className={cn("flex items-center gap-1.5 text-[13px] transition-colors group", hasSaved ? "text-buildops-blue" : "hover:text-buildops-blue")}>
+                <motion.div 
+                   whileTap={{ scale: 0.8 }}
+                   animate={hasSaved ? { scale: [1, 1.2, 1] } : {}}
+                   transition={{ duration: 0.3 }}
+                   className={cn("p-1.5 rounded-full transition-colors", hasSaved ? "bg-buildops-blue/10" : "group-hover:bg-buildops-blue/10")}
+                >
+                  <Bookmark className={cn("w-5 h-5", hasSaved ? "fill-current" : "")} />
+                </motion.div>
+              </button>
+            </div>
+
+            {/* Description Section for posts with images */}
+            {hasImages && post?.body && post.body.trim() && !isEditing && (
+              <div className="mt-4 pt-4 border-t border-buildops-border/20">
+                <div 
+                  onClick={() => setShowFullDescriptionView(true)}
+                  className="cursor-pointer hover:opacity-80 transition-opacity flex flex-col gap-1.5"
+                >
+                  <div className="text-xs font-mono font-bold text-buildops-blue/95 uppercase tracking-wider">
+                    Description
+                  </div>
+                  <div className="text-[15px] md:text-[16px] text-buildops-text/95 leading-relaxed font-sans whitespace-pre-wrap break-words">
+                    {(() => {
+                      const { excerpt } = getWordsExcerpt(post.body, 10);
+                      return (
+                        <span>
+                          {excerpt}
+                          <span className="text-buildops-blue font-semibold hover:underline ml-1">
+                            ...Read more
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
-            </button>
+            )}
           </div>
-        </section>
+        </div>
 
         {/* Comments Section */}
         <section className="pt-6 border-t border-buildops-border">
@@ -1872,7 +1903,7 @@ export function ProblemDetail() {
                                             Replying to <Link to={`/profile/${parentComment.authorId}`} className="ml-1 text-buildops-blue hover:underline">@{parentAuthor.handle || parentAuthor.displayName}</Link>
                                          </span>
                                       )}
-                                      {comment.isSolution && <span className="text-xs font-semibold text-buildops-green bg-buildops-green/10 px-2.5 py-0.5 rounded-full ml-2 flex items-center gap-1 border border-buildops-green/20"><CheckCircle2 className="w-3.5 h-3.5"/> Solution</span>}
+                                      {null}
                                     </div>
                                  </div>
                                  {editingCommentId === comment.id ? (
@@ -1979,7 +2010,7 @@ export function ProblemDetail() {
                                        }
                                        return null;
                                     })()}
-                                    {post.authorId === user?.uid && post.status && post.status !== 'none' && comment.authorId !== user?.uid && (
+                                    {false && post.authorId === user?.uid && post.status && post.status !== 'none' && comment.authorId !== user?.uid && (
                                       <button 
                                         onClick={async () => {
                                            try {
