@@ -1,4 +1,4 @@
-import { LinkIcon, Plus, Terminal, ChevronDown, Github, Globe, ArrowLeft, Search, MoreVertical } from "lucide-react";
+import { LinkIcon, Plus, Terminal, ChevronDown, Github, Globe, ArrowLeft, Search, MoreVertical, Image as ImageIcon, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -14,6 +14,8 @@ import { useConfirmNavigation } from "@/src/hooks/useConfirmNavigation";
 import { ConfirmNavigationDialog } from "@/src/components/ConfirmNavigationDialog";
 import { toast } from "sonner";
 import { syncPostToRtdb } from "@/src/lib/rtdb-sync";
+import { compressImage } from "@/src/lib/image-optimizer";
+import { ImageCropModal } from "@/src/components/ImageCropModal";
 
 export function SubmitBuild() {
   const [title, setTitle] = useState("");
@@ -24,6 +26,10 @@ export function SubmitBuild() {
   const [tagInput, setTagInput] = useState("");
   const [category, setCategory] = useState("none");
   const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [croppingImageSrc, setCroppingImageSrc] = useState<string | null>(null);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSettings();
@@ -61,13 +67,57 @@ export function SubmitBuild() {
         if (parsed.tags) setTags(parsed.tags);
         if (parsed.tagInput) setTagInput(parsed.tagInput);
         if (parsed.category) setCategory(parsed.category);
+        if (parsed.images) setImages(parsed.images);
       }
     } catch (e) {
       console.error("Failed to read draft from localStorage:", e);
     }
   }, []);
 
-  const isDirty = title.trim() !== "" || description.trim() !== "" || githubUrl.trim() !== "" || liveUrl.trim() !== "" || tags.length > 0 || tagInput.trim() !== "";
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const remainingSlots = 4 - images.length;
+    const validFiles = Array.from(files)
+      .slice(0, remainingSlots)
+      .filter(file => {
+        if (!file.type.startsWith("image/")) {
+          toast.error("Only image files are supported!");
+          return false;
+        }
+        return true;
+      });
+
+    if (validFiles.length > 0) {
+      setCropQueue(validFiles);
+    }
+    e.target.value = "";
+  };
+
+  useEffect(() => {
+    if (cropQueue.length > 0 && !croppingImageSrc) {
+      const nextFile = cropQueue[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCroppingImageSrc(e.target?.result as string);
+      };
+      reader.readAsDataURL(nextFile);
+    }
+  }, [cropQueue, croppingImageSrc]);
+
+  const handleCropComplete = (croppedBase64: string) => {
+    setImages(prev => [...prev, croppedBase64]);
+    setCroppingImageSrc(null);
+    setCropQueue(prev => prev.slice(1));
+  };
+
+  const handleCropClose = () => {
+    setCroppingImageSrc(null);
+    setCropQueue([]);
+  };
+
+  const isDirty = title.trim() !== "" || description.trim() !== "" || githubUrl.trim() !== "" || liveUrl.trim() !== "" || tags.length > 0 || tagInput.trim() !== "" || images.length > 0;
   const blocker = useConfirmNavigation(isDirty && !loading);
 
   const submitPost = async () => {
@@ -116,7 +166,8 @@ export function SubmitBuild() {
         ranking: {
           feedScore: 0,
           searchScore: 50
-        }
+        },
+        images: images
       };
 
       if (category !== "none") payload.category = category;
@@ -182,6 +233,45 @@ export function SubmitBuild() {
                placeholder={"Describe your project, architecture, stack used, and how it works...\nMarkdown, code blocks, @mentions, and #tags are supported."}
                height="150px"
             />
+
+            {/* Image Upload Section */}
+            <div className="space-y-3 pt-2">
+              <label className="text-xs font-mono text-buildops-text-secondary ml-1">images (optional - max 4)</label>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {images.map((img, index) => (
+                  <div key={index} className="relative aspect-video rounded-lg overflow-hidden border border-buildops-border group">
+                    <img src={img} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setImages(images.filter((_, i) => i !== index))}
+                      className="absolute top-1.5 right-1.5 p-1 bg-black/60 rounded-full hover:bg-black/95 text-white/80 hover:text-white transition-all cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-1 left-2 bg-black/60 px-1.5 py-0.5 rounded text-[10px] font-mono text-white/90">
+                      {index + 1}/4
+                    </div>
+                  </div>
+                ))}
+                
+                {images.length < 4 && (
+                  <label className="border border-dashed border-buildops-border hover:border-buildops-blue/50 bg-buildops-card/50 hover:bg-buildops-card/80 rounded-lg aspect-video flex flex-col items-center justify-center cursor-pointer group transition-all">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={handleImageChange} 
+                      className="hidden" 
+                    />
+                    <ImageIcon className="w-6 h-6 text-buildops-text-secondary group-hover:text-buildops-blue transition-colors mb-1" />
+                    <span className="text-xs font-mono text-buildops-text-secondary group-hover:text-buildops-text transition-colors">
+                      {isOptimizing ? "Optimizing..." : "Add Image"}
+                    </span>
+                  </label>
+                )}
+              </div>
+            </div>
 
             {/* URLs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -339,7 +429,7 @@ export function SubmitBuild() {
         secondaryActionText="Discard"
         onPrimaryAction={() => {
            localStorage.setItem('submit_build_draft_full', JSON.stringify({
-              title, description, githubUrl, liveUrl, tags, tagInput, category
+              title, description, githubUrl, liveUrl, tags, tagInput, category, images
            }));
            blocker.proceed?.();
         }}
@@ -349,6 +439,14 @@ export function SubmitBuild() {
         }}
         onDismiss={() => blocker.reset?.()}
       />
+
+      {croppingImageSrc && (
+        <ImageCropModal
+          imageSrc={croppingImageSrc}
+          onClose={handleCropClose}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 }

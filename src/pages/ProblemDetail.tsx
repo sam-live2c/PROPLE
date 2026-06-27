@@ -21,6 +21,7 @@ import { notifyMentions } from "@/src/lib/mentions";
 import { toast } from "sonner";
 import { FollowButton } from "@/src/components/FollowButton";
 import { useSettings } from "@/src/contexts/SettingsContext";
+import { ImageCarousel } from "@/src/components/ImageCarousel";
 
 const getWordsExcerpt = (text: string, limit: number) => {
   if (!text) return { excerpt: "", isTruncated: false, totalWords: 0 };
@@ -1264,6 +1265,14 @@ export function ProblemDetail() {
           )}
 
         </div>
+
+        {post.images && post.images.length > 0 && (
+          <div className="mb-6 px-3 sm:px-4 md:px-5 lg:px-6">
+            <div className="sm:pl-[52px]">
+              <ImageCarousel images={post.images} aspectRatio="auto" />
+            </div>
+          </div>
+        )}
 
         {/* User Description (Raw) */}
         <section className="space-y-4">

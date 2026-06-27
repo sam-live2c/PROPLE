@@ -1230,7 +1230,7 @@ export function Search() {
 
         {/* Suggestions Overlay - Nested inside the sticky wrapper to completely prevent overlapping issues on mobile */}
         {searchInput !== searchQuery && searchInput.trim().length > 0 && (
-          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-0 border-t border-buildops-border">
+          <div className="absolute top-full left-0 right-0 bg-buildops-bg z-40 overflow-y-auto md:hidden w-full h-[calc(100vh-56px)] pb-20 pt-1 border-t border-buildops-border">
             {unifiedSuggestions.length === 0 ? (
               <div className="flex items-center gap-3 px-4 py-2 border-b border-buildops-border/30">
                 <SearchIcon className="w-4 h-4 text-buildops-text-secondary shrink-0" />
@@ -1322,7 +1322,7 @@ export function Search() {
 
       {!searchQuery ? (
         /* SEARCH HOME STATE */
-        <div className="flex-1 flex flex-col items-center pt-1 md:pt-16 max-w-3xl mx-auto w-full px-4">
+        <div className="flex-1 flex flex-col items-center pt-1 md:pt-16 max-w-3xl mx-auto w-full px-0 md:px-4">
           <h1 className="text-2xl md:text-3xl font-bold text-buildops-text mb-8 hidden md:block">
             Search engineering posts
           </h1>
@@ -1436,14 +1436,14 @@ export function Search() {
           <div className="w-full">
             {!historyLoaded ? (
               <div className="mb-6">
-                <div className="flex flex-col gap-1 -ml-3">
+                <div className="flex flex-col gap-1 md:-ml-3">
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
-                      className="px-3 py-2 rounded-lg text-left text-sm text-buildops-text flex items-center justify-between animate-pulse w-full"
+                      className="px-4 md:px-3 py-2 rounded-lg text-left text-sm text-buildops-text flex items-center justify-between animate-pulse w-full"
                     >
-                      <span className="flex items-start gap-3 flex-1 overflow-hidden">
-                        <Clock className="w-4 h-4 shrink-0 text-buildops-text-secondary mt-[3px]" />
+                      <span className="flex items-center gap-3 flex-1 overflow-hidden">
+                        <Clock className="w-4 h-4 shrink-0 text-buildops-text-secondary" />
                         <div className="h-4 bg-[rgba(255,255,255,0.08)] rounded w-2/3"></div>
                       </span>
                       <div className="p-1 -mr-1 text-buildops-text-secondary">
@@ -1455,10 +1455,10 @@ export function Search() {
               </div>
             ) : (
               recentSearches.length > 0 && (
-                <div className="mb-6">
-                  <div className="flex flex-col gap-1 -ml-3">
+                <div className="mb-6 w-full">
+                  <div className="flex flex-col gap-1 md:-ml-3 w-full">
                     {recentSearches.map((search) => (
-                      <div key={search.id} className="relative">
+                      <div key={search.id} className="relative w-full">
                         {false && (
                           <div className="absolute top-0 left-0 w-full h-full bg-buildops-bg/40 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-lg">
                             <div className="bg-buildops-card border border-buildops-border p-2 rounded-lg shadow-lg flex flex-col items-center gap-2 max-w-[200px]">
@@ -1521,11 +1521,11 @@ export function Search() {
                           onMouseDown={(e) => handleSearchPressStart(search.id)}
                           onMouseUp={handleSearchPressEnd}
                           onMouseLeave={handleSearchPressEnd}
-                          className="px-3 py-2 rounded-lg hover:bg-buildops-card text-left text-sm text-buildops-text flex items-center justify-between group transition-colors cursor-pointer select-none"
+                          className="px-4 md:px-3 py-2 rounded-lg hover:bg-buildops-card active:bg-buildops-card text-left text-sm text-buildops-text flex items-center justify-between group transition-colors cursor-pointer select-none w-full"
                         >
-                          <span className="flex items-start gap-3 flex-1 overflow-hidden">
-                            <Clock className="w-4 h-4 shrink-0 text-buildops-text-secondary mt-[3px]" />
-                            <span className="line-clamp-2 leading-tight break-words">
+                          <span className="flex items-center gap-3 flex-1 overflow-hidden">
+                            <Clock className="w-4 h-4 shrink-0 text-buildops-text-secondary" />
+                            <span className="line-clamp-1 leading-tight break-all font-medium text-buildops-text text-sm">
                               {search.query}
                             </span>
                           </span>

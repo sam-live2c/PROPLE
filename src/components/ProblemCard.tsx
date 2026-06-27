@@ -23,6 +23,7 @@ import { renderTextWithMentions } from "@/src/lib/renderUtils";
 import { FollowButton } from "./FollowButton";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { CodeEditor } from "./CodeEditor";
+import { ImageCarousel } from "./ImageCarousel";
 
 export function ProblemCard({ post: initialPost, showTrashActions = false, onRestore, onDeletePermanently }: ProblemCardProps) {
   const { settings } = useSettings();
@@ -679,17 +680,15 @@ export function ProblemCard({ post: initialPost, showTrashActions = false, onRes
             </div>
         ) : (
             <>
-               <h3 className="text-base font-bold text-buildops-text mb-1 leading-snug">
+               <h3 className="text-base font-bold text-buildops-text mb-2 leading-snug">
                  {renderTextWithMentions(post.title, false)}
                </h3>
-               <div className={`text-buildops-text/95 ${settings.feedDensity === 'compact' ? 'text-sm mb-2' : 'text-[15px] mb-3'} leading-snug font-sans`}>
-                  <div className={settings.feedDensity === 'expanded' ? '' : settings.feedDensity === 'compact' ? 'line-clamp-2' : 'line-clamp-3'}>
-                    {renderTextWithMentions(post.body, settings.markdownRendering)}
-                  </div>
-                  {post.body && post.body.length > (settings.feedDensity === 'compact' ? 100 : 200) && settings.feedDensity !== 'expanded' && (
-                    <span className="text-buildops-blue text-sm hover:underline mt-1 inline-block">Read more</span>
-                  )}
-               </div>
+               
+               {post.images && post.images.length > 0 && (
+                 <div className="mb-3">
+                   <ImageCarousel images={post.images} aspectRatio="auto" />
+                 </div>
+               )}
             </>
         )}
 

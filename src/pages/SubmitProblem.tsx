@@ -1,4 +1,4 @@
-import { LinkIcon, Plus, Terminal, ChevronDown, ArrowLeft, Users, Heart, MessageSquare, Shield, Globe, Search, MoreVertical, Trash2, Save, Info } from "lucide-react";
+import { LinkIcon, Plus, Terminal, ChevronDown, ArrowLeft, Users, Heart, MessageSquare, Shield, Globe, Search, MoreVertical, Trash2, Save, Info, Image as ImageIcon, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -15,6 +15,8 @@ import { useConfirmNavigation } from "@/src/hooks/useConfirmNavigation";
 import { ConfirmNavigationDialog } from "@/src/components/ConfirmNavigationDialog";
 import { useSettings } from "@/src/contexts/SettingsContext";
 import { syncPostToRtdb } from "@/src/lib/rtdb-sync";
+import { compressImage } from "@/src/lib/image-optimizer";
+import { ImageCropModal } from "@/src/components/ImageCropModal";
 
 export function SubmitProblem() {
   const [title, setTitle] = useState("");
@@ -24,6 +26,10 @@ export function SubmitProblem() {
   const [category, setCategory] = useState("none");
   const [loading, setLoading] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [croppingImageSrc, setCroppingImageSrc] = useState<string | null>(null);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSettings();
@@ -60,13 +66,57 @@ export function SubmitProblem() {
         if (parsed.description) setDescription(parsed.description);
         if (parsed.tags) setTags(parsed.tags);
         if (parsed.tagInput) setTagInput(parsed.tagInput);
+        if (parsed.images) setImages(parsed.images);
       }
     } catch (e) {
       console.error("Failed to read draft from localStorage:", e);
     }
   }, []);
 
-  const isDirty = title.trim() !== "" || description.trim() !== "" || tags.length > 0 || tagInput.trim() !== "";
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const remainingSlots = 4 - images.length;
+    const validFiles = Array.from(files)
+      .slice(0, remainingSlots)
+      .filter(file => {
+        if (!file.type.startsWith("image/")) {
+          toast.error("Only image files are supported!");
+          return false;
+        }
+        return true;
+      });
+
+    if (validFiles.length > 0) {
+      setCropQueue(validFiles);
+    }
+    e.target.value = "";
+  };
+
+  useEffect(() => {
+    if (cropQueue.length > 0 && !croppingImageSrc) {
+      const nextFile = cropQueue[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCroppingImageSrc(e.target?.result as string);
+      };
+      reader.readAsDataURL(nextFile);
+    }
+  }, [cropQueue, croppingImageSrc]);
+
+  const handleCropComplete = (croppedBase64: string) => {
+    setImages(prev => [...prev, croppedBase64]);
+    setCroppingImageSrc(null);
+    setCropQueue(prev => prev.slice(1));
+  };
+
+  const handleCropClose = () => {
+    setCroppingImageSrc(null);
+    setCropQueue([]);
+  };
+
+  const isDirty = title.trim() !== "" || description.trim() !== "" || tags.length > 0 || tagInput.trim() !== "" || images.length > 0;
   const blocker = useConfirmNavigation(isDirty && !loading);
 
 
@@ -112,7 +162,8 @@ export function SubmitProblem() {
         ranking: {
           feedScore: 0,
           searchScore: 50
-        }
+        },
+        images: images
       };
 
       if (finalTags && finalTags.length > 0) {
@@ -172,7 +223,7 @@ export function SubmitProblem() {
                       type="button"
                       onClick={() => {
                         setIsMenuOpen(false);
-                        localStorage.setItem('submit_problem_draft_full', JSON.stringify({ title, description, tags, tagInput }));
+                        localStorage.setItem('submit_problem_draft_full', JSON.stringify({ title, description, tags, tagInput, images }));
                         toast.success("Draft saved successfully!");
                       }}
                       className="w-full text-left px-4 py-2.5 text-sm text-buildops-text hover:bg-white/5 transition-colors flex items-center gap-2.5 cursor-pointer border-x-0 border-t-0 border-b border-buildops-border/20 bg-transparent font-medium"
@@ -189,6 +240,7 @@ export function SubmitProblem() {
                         setDescription("");
                         setTags([]);
                         setTagInput("");
+                        setImages([]);
                         localStorage.removeItem('submit_problem_draft_full');
                         toast.info("Form cleared completely.");
                       }}
@@ -244,6 +296,45 @@ export function SubmitProblem() {
                 placeholder="What details or updates would you like to share? Write your post here... Mention builders with @username and use #tags."
                 className="w-full bg-transparent text-buildops-text p-4 font-sans text-base sm:text-lg resize-none focus:outline-none placeholder:text-buildops-text-secondary/40 min-h-[160px] leading-relaxed"
               />
+            </div>
+
+            {/* Image Upload Section */}
+            <div className="space-y-3 pt-2">
+              <label className="text-xs font-mono text-buildops-text-secondary ml-1">images (optional - max 4)</label>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {images.map((img, index) => (
+                  <div key={index} className="relative aspect-video rounded-lg overflow-hidden border border-buildops-border group">
+                    <img src={img} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setImages(images.filter((_, i) => i !== index))}
+                      className="absolute top-1.5 right-1.5 p-1 bg-black/60 rounded-full hover:bg-black/95 text-white/80 hover:text-white transition-all cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-1 left-2 bg-black/60 px-1.5 py-0.5 rounded text-[10px] font-mono text-white/90">
+                      {index + 1}/4
+                    </div>
+                  </div>
+                ))}
+                
+                {images.length < 4 && (
+                  <label className="border border-dashed border-buildops-border hover:border-buildops-blue/50 bg-buildops-card/50 hover:bg-buildops-card/80 rounded-lg aspect-video flex flex-col items-center justify-center cursor-pointer group transition-all">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={handleImageChange} 
+                      className="hidden" 
+                    />
+                    <ImageIcon className="w-6 h-6 text-buildops-text-secondary group-hover:text-buildops-blue transition-colors mb-1" />
+                    <span className="text-xs font-mono text-buildops-text-secondary group-hover:text-buildops-text transition-colors">
+                      {isOptimizing ? "Optimizing..." : "Add Image"}
+                    </span>
+                  </label>
+                )}
+              </div>
             </div>
 
             {/* Metadata Inputs */}
@@ -361,7 +452,7 @@ export function SubmitProblem() {
         secondaryActionText="Discard"
         onPrimaryAction={() => {
           localStorage.setItem('submit_problem_draft_full', JSON.stringify({
-             title, description, tags, tagInput, category
+             title, description, tags, tagInput, category, images
           }));
           blocker.proceed?.();
         }}
@@ -371,6 +462,14 @@ export function SubmitProblem() {
         }}
         onDismiss={() => blocker.reset?.()}
       />
+
+      {croppingImageSrc && (
+        <ImageCropModal
+          imageSrc={croppingImageSrc}
+          onClose={handleCropClose}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 }
